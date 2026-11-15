@@ -8,7 +8,7 @@
 
 > **Ảnh và log thuộc CÙNG MỘT LẦN CHẠY.** `./run_tests.sh` chạy ngày **15/11/2026, từ 19:22:04
 > đến 19:22:40 (UTC+7)** (= 12:22:04–12:22:40 UTC, giờ ghi trong log), ngay sau đó build lại cấu
-> hình mặc định lúc 19:22:45 để lưu log build. Mọi ảnh 01–14 và 16–18 chỉ lấy dữ liệu từ các file log
+> hình mặc định lúc 19:22:45 để lưu log build. Mọi ảnh 01–14 và 16–24 chỉ lấy dữ liệu từ các file log
 > dưới đây của lần chạy này:
 >
 > - Log console của `run_tests.sh` (exit code + số process hoàn tất, có dấu thời gian): `output_run/run_tests_console.output`
@@ -68,11 +68,41 @@ Gantt parse từ chính log trên:
 
 **Giải thích:** P1/P2 cùng mức prio 4 nên **luân phiên round-robin** (ngân sách mức 4 là `140−4=136` slot nên hai process này dùng CPU tới khi xong). P3/P4 (prio 0) vào lúc con trỏ MLQ đang đứng ở mức 4 — theo đúng chính sách *fixed traversal*, chúng phải đợi bộ định thời **hoàn tất phần ngân sách của mức hiện tại/vòng duyệt** rồi mới được phục vụ, sau đó cũng luân phiên nhau đến hết. Đây là hành vi đúng của thiết kế "mỗi hàng đợi một ngân sách cố định", khác với preemption tức thời — và là một trong các kết quả "khác sample nhưng giải thích được" mà đề cho phép (loader và scheduler chạy song song).
 
+Dòng thời gian theo **từng process** (cùng log; xám = đang nằm trong hàng đợi chờ CPU):
+
+![Timeline sched_0](report/images/21_timeline_sched_0.png)
+
+Biểu đồ cho thấy trực tiếp cái giá của chính sách: P3 (nạp slot 4) và P4 (nạp slot 5) có prio 0 nhưng phải chờ liền một mạch tới slot 31 và 33, tổng thời gian chờ **33 slot** mỗi process. Trong khi đó P1/P2 (prio 4) chỉ chờ 15 slot, và đó là thời gian nhường lượt cho nhau trong cùng mức.
+
 Test `os_0_mlq_paging` (2 CPU, 5 process: P2 prio 15, P1/P3/P4/P5 prio 0 — đúng như dòng `Loaded a process … PRIO` trong log và `input/os_0_mlq_paging`):
 
 ![Gantt os_0](report/images/14_gantt_os_0.png)
 
 **Giải thích:** hai CPU lấy process song song. P2 (prio 15) được chạy ở slot 2–8 vì lúc đó là process duy nhất đang chờ; khi P3, P4, P5 (prio 0) lần lượt vào hàng đợi, mức 0 được phục vụ trước nên P1/P3/P4/P5 luân phiên round-robin trên cả hai CPU, còn P2 phải chờ tới **slot 28** — khi mức 0 không còn process chờ — mới được chạy tiếp đến khi xong.
+
+Dòng thời gian theo từng process:
+
+![Timeline os_0](report/images/23_timeline_os_0.png)
+
+P2 (prio 15) chờ liền từ slot 8 đến slot 28, tổng chờ 21 slot (turnaround 31), cao nhất trong 5 process. Các process prio 0 chỉ chờ 8–12 slot, và đó là các lượt luân phiên trên 2 CPU.
+
+Test `sched` (2 CPU, time slice 4, 4 process: P1 prio 0 vào slot 0, P2 prio 1 vào slot 1, P3 prio 1 vào slot 3, P4 prio 0 vào slot 4 — xem `input/sched`). Log đầy đủ `output_run/sched.output`:
+
+![sched](report/images/19_sched.png)
+
+Gantt parse từ chính log trên:
+
+![Gantt sched](report/images/20_gantt_sched.png)
+
+**Giải thích (đối chiếu log):**
+1. Slot 1: CPU 1 lấy P1 (prio 0). Slot 2: hàng đợi mức 0 đã rỗng → con trỏ MLQ bước sang mức 1, CPU 0 lấy P2.
+2. Slot 4: P4 (prio 0) vào hàng đợi; slot 5: P1 hết time slice (4 slot) và được trả về mức 0 — nhưng CPU 1 lấy **P3 (prio 1)**, vì con trỏ đang đứng ở mức 1, mức này còn ngân sách (`140−1=139` slot) và chưa rỗng. Cũng vì vậy ở slot 6 và 10, CPU 0 lấy lại chính P2 dù P1/P4 prio 0 đang chờ.
+3. Slot 12: P2 xong, mức 1 không còn process chờ (P3 đang chạy) → con trỏ quay về mức 0: CPU 0 lấy P4 (slot 12), CPU 1 lấy P1 (slot 13); P3 bị trả về mức 1 ở slot 13 và chỉ chạy lại ở slot 21, khi P1 kết thúc.
+4. Hệ quả: P1 chờ từ slot 5 đến 13 và P4 chờ từ slot 4 đến 12 (mỗi process 8 slot) dù có prio cao hơn — cùng hành vi *fixed traversal* như `sched_0`, nhưng ở đây thấy rõ trên **2 CPU** chạy song song. Toàn bộ kết thúc ở slot 25 (P2: 12, P1: 21, P4: 23, P3: 25).
+
+Dòng thời gian theo từng process cho thấy đúng hai đoạn chờ 8 slot đó (P1: slot 5→13; P4: slot 4→12). Tổng thời gian chờ là P1 9 slot (gồm 1 slot trước lần dispatch đầu), P2 1, P3 10, P4 8:
+
+![Timeline sched](report/images/22_timeline_sched.png)
 
 ## 3. System call framework
 
@@ -116,6 +146,10 @@ Phần write/read và kết thúc process (giá trị **write 100 → read ra đ
 RAM chỉ **8192 byte = 2 frame**; process `m4s` cấp 3 trang và đọc lại trang đầu:
 
 ![os_4_swap](report/images/08_os_4_swap.png)
+
+Diễn biến 2 frame RAM và vùng swap, dựng từ 6 bảng trang mà log in ra sau mỗi thao tác (cột = trạng thái sau thao tác đó). Chú thích ①② do script tính từ log: page bị đẩy ra là page **vào RAM sớm nhất** trong các page đang ở RAM, tức đúng FIFO:
+
+![Frame RAM os_4_swap](report/images/24_swap_frames.png)
 
 **Diễn giải từng bước (đối chiếu log):**
 1. `alloc 4096 1` → page 0 → frame 0; `alloc 4096 2` → page 1 → frame 1. RAM đầy.
