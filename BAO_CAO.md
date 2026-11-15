@@ -3,7 +3,24 @@
 > Môn CO2018 — Operating Systems. Toàn bộ ảnh trong báo cáo là **ảnh chụp kết quả chạy thật**
 > (log được lưu nguyên văn trong `output_run/`, ảnh được render trực tiếp từ log bằng
 > `report/make_screenshot.py` — không chỉnh sửa nội dung). Gantt chart được **parse tự động
-> từ log thật** bằng `report/make_gantt.py`.
+> từ log thật** bằng `report/make_gantt.py`; các biểu đồ số liệu (ảnh 16–18) được parse từ
+> cùng các log đó bằng `report/make_charts.py`. Lệnh tạo lại toàn bộ: `python report/make_images.py`.
+
+> **Ảnh và log thuộc CÙNG MỘT LẦN CHẠY.** `./run_tests.sh` chạy ngày **15/11/2026, từ 19:22:04
+> đến 19:22:40 (UTC+7)** (= 12:22:04–12:22:40 UTC, giờ ghi trong log), ngay sau đó build lại cấu
+> hình mặc định lúc 19:22:45 để lưu log build. Mọi ảnh 01–14 và 16–18 chỉ lấy dữ liệu từ các file log
+> dưới đây của lần chạy này:
+>
+> - Log console của `run_tests.sh` (exit code + số process hoàn tất, có dấu thời gian): `output_run/run_tests_console.output`
+> - Log build (`make clean && make all`, cấu hình mặc định): `output_run/build.output` → ảnh 01
+> - Chế độ chuẩn (MM64): `output_run/os_sc.output`, `os_syscall.output`, `os_syscall_list.output`,
+>   `os_0_mlq_paging.output`, `os_1_mlq_paging.output`, `os_2_mlq_paging.output`,
+>   `os_1_singleCPU_mlq_paging.output`, `os_2_singleCPU_mlq_paging.output`,
+>   `os_1_mlq_paging_small_1K.output`, `os_1_mlq_paging_small_4K.output`, `os_3_kernel.output`, `os_4_swap.output`
+> - Chế độ legacy (`MM_FIXED_MEMSZ`): `output_run/sched.output`, `sched_0.output`, `sched_1.output`, `os_1_singleCPU_mlq.output`
+>
+> Riêng `15_addr_translation.png` là sơ đồ nguyên lý (vẽ bằng `report/make_addr_diagram.py`), không
+> chứa số liệu chạy; ví dụ trong sơ đồ (page 1 = địa chỉ 0x1000 của `os_4_swap`) đã đối chiếu khớp với log lần chạy này.
 
 ## Mục lục
 1. [Môi trường & Build](#1-môi-trường--build)
@@ -26,6 +43,10 @@
 ![Build](report/images/01_build.png)
 
 Chạy toàn bộ 16 test case bằng `./run_tests.sh` → **16/16 pass** (mọi process đều `has finished`, exit=0).
+Biểu đồ dưới parse từ `output_run/run_tests_console.output` (exit code, số `has finished`) và đếm số dòng
+`Loaded a process` trong từng `output_run/<test>.output` (mẫu số):
+
+![Kết quả 16 test](report/images/16_chart_tests.png)
 
 ## 2. Scheduler — MLQ
 
@@ -47,11 +68,11 @@ Gantt parse từ chính log trên:
 
 **Giải thích:** P1/P2 cùng mức prio 4 nên **luân phiên round-robin** (ngân sách mức 4 là `140−4=136` slot nên hai process này dùng CPU tới khi xong). P3/P4 (prio 0) vào lúc con trỏ MLQ đang đứng ở mức 4 — theo đúng chính sách *fixed traversal*, chúng phải đợi bộ định thời **hoàn tất phần ngân sách của mức hiện tại/vòng duyệt** rồi mới được phục vụ, sau đó cũng luân phiên nhau đến hết. Đây là hành vi đúng của thiết kế "mỗi hàng đợi một ngân sách cố định", khác với preemption tức thời — và là một trong các kết quả "khác sample nhưng giải thích được" mà đề cho phép (loader và scheduler chạy song song).
 
-Test `os_0_mlq_paging` (2 CPU, 5 process, prio 0,1,2,4,15 — xem `input/os_0_mlq_paging`):
+Test `os_0_mlq_paging` (2 CPU, 5 process: P2 prio 15, P1/P3/P4/P5 prio 0 — đúng như dòng `Loaded a process … PRIO` trong log và `input/os_0_mlq_paging`):
 
 ![Gantt os_0](report/images/14_gantt_os_0.png)
 
-**Giải thích:** hai CPU lấy process song song; các process prio nhỏ (0–2: P1, P2, P3…) được cấp slot trước và nhiều hơn; P4/P5 prio lớn hơn chạy xen kẽ khi tới lượt ngân sách của mức đó.
+**Giải thích:** hai CPU lấy process song song. P2 (prio 15) được chạy ở slot 2–8 vì lúc đó là process duy nhất đang chờ; khi P3, P4, P5 (prio 0) lần lượt vào hàng đợi, mức 0 được phục vụ trước nên P1/P3/P4/P5 luân phiên round-robin trên cả hai CPU, còn P2 phải chờ tới **slot 28** — khi mức 0 không còn process chờ — mới được chạy tiếp đến khi xong.
 
 ## 3. System call framework
 
@@ -202,7 +223,7 @@ Các sự cố cụ thể sẽ xảy ra trong chính Simple OS này:
 
 ### Câu hỏi phụ mục 2.2.2 (demand allocation)
 
-*"Nếu không cấp phát theo demand"*: phải dựng đủ cây 5 cấp ngay `init_mm` — 1 + 512 + 512² + 512³ + 512⁴ bảng ≈ **6.9×10¹⁰ bảng × 4KB ≈ 275 TB cho MỖI process** — bất khả thi; demand allocation đưa chi phí về tỉ lệ với số trang thực dùng (số liệu mục 9).
+*"Nếu không cấp phát theo demand"*: phải dựng đủ cây 5 cấp ngay `init_mm` — 1 + 512 + 512² + 512³ + 512⁴ bảng ≈ **6.9×10¹⁰ bảng × 4KB ≈ 275 TB cho MỖI process** — bất khả thi; demand allocation đưa chi phí về tỉ lệ với số trang thực dùng (số liệu và biểu đồ so sánh ở mục 9).
 
 ## 9. Thống kê & kết luận
 
@@ -210,14 +231,33 @@ Yêu cầu của đề: *"present statistics on the number of memory accesses an
 
 ![stats](report/images/10_os_1_stats.png)
 
+Số liệu dòng `MM64 stats` của **cả 16 test** trong lần chạy này (parse từ `output_run/<test>.output`):
+
+![MM64 stats](report/images/17_chart_mm64_stats.png)
+
 | Test | Bảng thư mục đã cấp | Dung lượng bảng trang | Số lần walk PTE |
 |---|---|---|---|
+| os_sc (1 proc) | 2 | 8 KB | 0 |
+| os_syscall (1 proc, RAM < 1 trang) | 2 | 8 KB | 0 |
+| os_syscall_list (1 proc) | 2 | 8 KB | 0 |
 | os_0_mlq_paging (5 proc) | 14 | 56 KB | 38 |
 | os_1_mlq_paging (8 proc) | 21 | 84 KB | 49 |
 | os_2_mlq_paging (6 proc, kmalloc+DMA) | 19 | 76 KB | 40 |
+| os_1_singleCPU_mlq_paging (8 proc) | 17 | 68 KB | 30 |
+| os_2_singleCPU_mlq_paging (5 proc) | 18 | 72 KB | 40 |
+| os_1_mlq_paging_small_1K (8 proc) | 9 | 36 KB | 0 |
+| os_1_mlq_paging_small_4K (8 proc) | 13 | 52 KB | 19 |
 | os_3_kernel (1 proc, round-trip) | 10 | 40 KB | 44 |
 | os_4_swap (1 proc, 2 frame RAM) | 6 | 24 KB | 33 |
+| sched (legacy, 4 proc) | 5 | 20 KB | 0 |
+| sched_0 (legacy, 4 proc) | 5 | 20 KB | 0 |
+| sched_1 (legacy, 5 proc) | 6 | 24 KB | 0 |
+| os_1_singleCPU_mlq (legacy, 8 proc) | 9 | 36 KB | 0 |
 
-**Diễn giải:** mỗi process chạm vài trang chỉ tốn ~5 bảng (1 PGD + 1 nhánh P4D→PT ≈ 20KB); tổng cho cả hệ (nhiều process + kernel) chỉ vài chục KB — so với ~275TB/process nếu dựng cây tĩnh ⇒ **lợi ích thiết kế demand allocation là quyết định**. Số walk (mỗi walk ≤ 5 truy cập bảng) tỷ lệ với số thao tác alloc/read/write/swap, đúng kỳ vọng lý thuyết N-level paging.
+**Diễn giải:** mỗi process chạm vài trang chỉ tốn ~5 bảng (1 PGD + 1 nhánh P4D→PT ≈ 20KB); tổng cho cả hệ (nhiều process + kernel) chỉ vài chục KB — so với ~275TB/process nếu dựng cây tĩnh ⇒ **lợi ích thiết kế demand allocation là quyết định**. Số walk (mỗi walk ≤ 5 truy cập bảng) tỷ lệ với số thao tác alloc/read/write/swap, đúng kỳ vọng lý thuyết N-level paging; các test chỉ lập lịch (sched*, legacy) hoặc có `alloc` thất bại (os_syscall, small_1K) có 0 walk vì không có thao tác bộ nhớ thành công nào cần dịch địa chỉ.
+
+So sánh trên thang log giữa mức đo được lớn nhất (os_1_mlq_paging, cả hệ: 84 KB) và cây tĩnh lý thuyết của **một** process (tính toán, không đo):
+
+![Demand vs cây tĩnh](report/images/18_chart_demand.png)
 
 **Kết luận:** Toàn bộ hạng mục đề yêu cầu đã hoàn thành — MLQ scheduler (có Gantt), 5-level paging 64-bit (demand allocation, có sơ đồ dịch địa chỉ + thống kê), swap FIFO qua syscall, tách user/kernel space với PID passing, kmalloc contiguous, copy_from/to_user, DMA bất đồng bộ với callback/ngắt (RTL + software prototype fallback), syscall 440 tự thêm, đồng bộ hóa đầy đủ. **16/16 test case chạy thành công**; mọi kết quả trong báo cáo đều là output thật lưu tại `output_run/`, kiểm chứng lại được theo `TESTING_GUIDE.md`.

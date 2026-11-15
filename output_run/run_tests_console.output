@@ -1,0 +1,41 @@
+# run_tests.sh started:  2026-11-15 12:22:04 +0000
+==============================================
+[1/2] Standard mode (MM64 + explicit mem size)
+==============================================
+--- Running os_sc
+    exit=0 processes_finished=1
+--- Running os_syscall
+    exit=0 processes_finished=1
+--- Running os_syscall_list
+    exit=0 processes_finished=1
+--- Running os_0_mlq_paging
+    exit=0 processes_finished=5
+--- Running os_1_mlq_paging
+    exit=0 processes_finished=8
+--- Running os_2_mlq_paging
+    exit=0 processes_finished=6
+--- Running os_1_singleCPU_mlq_paging
+    exit=0 processes_finished=8
+--- Running os_2_singleCPU_mlq_paging
+    exit=0 processes_finished=5
+--- Running os_1_mlq_paging_small_1K
+    exit=0 processes_finished=8
+--- Running os_1_mlq_paging_small_4K
+    exit=0 processes_finished=8
+--- Running os_3_kernel
+    exit=0 processes_finished=1
+--- Running os_4_swap
+    exit=0 processes_finished=1
+==============================================
+[2/2] Legacy mode (MM_FIXED_MEMSZ) for old inputs
+==============================================
+--- Running sched
+    exit=0 processes_finished=4
+--- Running sched_0
+    exit=0 processes_finished=4
+--- Running sched_1
+    exit=0 processes_finished=5
+--- Running os_1_singleCPU_mlq
+    exit=0 processes_finished=8
+All done. Outputs are in output_run/
+# run_tests.sh finished: 2026-11-15 12:22:40 +0000

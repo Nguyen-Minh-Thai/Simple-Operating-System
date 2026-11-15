@@ -1,6 +1,6 @@
 Time slot   0
-Initialized dma software prototype engine (no Verilator RTL)
 ld_routine
+Initialized dma software prototype engine (no Verilator RTL)
 Time slot   1
 	Loaded a process at input/proc/sc1, PID: 1 PRIO: 15
 Time slot   2
@@ -8,7 +8,7 @@ Time slot   2
 0-sys_listsyscall
 17-sys_memmap
 440-sys_xxxhandler
-	CPU 0: Processed  1 has finished
 Time slot   3
+	CPU 0: Processed  1 has finished
 	CPU 0 stopped
 MM64 stats: directory tables allocated=2 (storage=8 KB), pte walks=0
