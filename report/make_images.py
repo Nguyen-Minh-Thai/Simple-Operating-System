@@ -33,11 +33,13 @@ SHOTS = [
     ("10_os_1_stats.png", "os_1_mlq_paging.output", "./os os_1_mlq_paging — ket thuc + MM64 stats", 200, 220),
     ("11_os_syscall.png", "os_syscall.output", "./os os_syscall — xu ly loi alloc khi RAM < 1 trang", None, None),
     ("12_small_4K.png", "os_1_mlq_paging_small_4K.output", "./os os_1_mlq_paging_small_4K — 8 process, RAM nho", 1, 40),
+    ("19_sched.png", "sched.output", "./os sched — MLQ 2 CPU, time slice 4 (legacy mode)", None, None),
 ]
 
 GANTTS = [
     ("13_gantt_sched_0.png", "sched_0.output", "Gantt — sched_0 (1 CPU, MLQ: P1,P2 prio 4; P3,P4 prio 0)"),
     ("14_gantt_os_0.png", "os_0_mlq_paging.output", "Gantt — os_0_mlq_paging (2 CPU, 5 process)"),
+    ("20_gantt_sched.png", "sched.output", "Gantt — sched (2 CPU: P1,P4 prio 0; P2,P3 prio 1)"),
 ]
 
 

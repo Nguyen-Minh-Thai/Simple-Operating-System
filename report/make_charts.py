@@ -26,7 +26,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
-from matplotlib.patches import PathPatch
+from matplotlib.lines import Line2D
+from matplotlib.patches import PathPatch, Patch, Rectangle
 from matplotlib.transforms import IdentityTransform
 from matplotlib.ticker import FuncFormatter, LogLocator, NullLocator
 
@@ -38,6 +39,9 @@ MUTED = "#898781"
 GRID = "#e1e0d9"
 AXIS = "#c3c2b7"
 SERIES1 = "#2a78d6"        # categorical slot 1 (blue)
+PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100",     # categorical, fixed order
+           "#e87ba4", "#008300", "#6250d6", "#e34948"]
+INK_ON = {"#eda100": "#0b0b0b"}                            # near-black label on yellow
 DEEMPH = MUTED             # emphasis form: the "rest" / hypothetical
 
 DPI = 150
@@ -255,12 +259,206 @@ def chart_demand(out, mm, stamps):
     print(f"saved {out}: full={full_kb} KB vs {best['kb']} KB ({test})")
 
 
+# ---- chart 21-23: per-process timeline (running / waiting) ------------------
+WAIT = "#d4d3cc"            # recessive gray wash for "waiting in ready queue"
+
+
+def chart_timeline(run_dir, test, out, title, stamps):
+    """One row per process: Loaded -> finished. Running intervals come from
+    make_gantt.parse (same bars/colours as the Gantt images); everything else
+    between load and finish is time spent waiting in a ready queue."""
+    sys.dont_write_bytecode = True          # no report/__pycache__ in the repo
+    from make_gantt import parse as gantt_parse, PALETTE as GPAL
+    path = os.path.join(run_dir, test + ".output")
+    bars, _cpus, pids = gantt_parse(path)
+    load, prio, fin, slot = {}, {}, {}, -1
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            m = re.match(r"Time slot\s+(\d+)", line)
+            if m:
+                slot = int(m.group(1))
+                continue
+            m = re.search(r"Loaded a process at .*PID: (\d+) PRIO: (\d+)", line)
+            if m:
+                load[int(m.group(1))], prio[int(m.group(1))] = slot, int(m.group(2))
+            m = re.search(r"Processed\s+(\d+) has finished", line)
+            if m:
+                fin[int(m.group(1))] = slot
+    order = sorted(load)
+    color = {p: GPAL[i % len(GPAL)] for i, p in enumerate(sorted(pids))}
+    run = {p: sorted((s, e, c) for c, q, s, e in bars if q == p) for p in order}
+    xmax = max(fin.values()) + 1
+
+    n = len(order)
+    fig, h_px = new_fig(n, 11, top_px=96, bottom_px=104, row_px=36 * PX)
+    top, bottom = 96 * PX, 104 * PX
+    ax = fig.add_axes([0.13, bottom / h_px, 0.66, 1 - (top + bottom) / h_px])
+    style_axes(ax, [f"P{p} · prio {prio[p]}" for p in order])
+    ax.set_xlim(0, xmax)
+    ax.xaxis.set_major_locator(plt.MultipleLocator(2 if xmax <= 40 else 5))
+    ax.set_xlabel("Time slot", fontsize=9, color=INK2, labelpad=6)
+    h = 0.56
+    stats = []
+    for i, p in enumerate(order):
+        a, b = load[p], fin[p]
+        ax.add_patch(Rectangle((a, i - h / 2), b - a, h, facecolor=WAIT,
+                               edgecolor="none", zorder=2))
+        busy = 0
+        for s, e, cpu in run[p]:
+            busy += e - s
+            ax.add_patch(Rectangle((s, i - h / 2), e - s, h, facecolor=color[p],
+                                   edgecolor=SURFACE, linewidth=1.5, zorder=3))
+        ax.plot([a, a], [i - 0.38, i + 0.38], color=INK, linewidth=1.6, zorder=4)
+        ax.plot([b], [i], marker="o", markersize=6, color=INK,
+                markeredgecolor=SURFACE, markeredgewidth=1.5, zorder=5)
+        tat = b - a
+        stats.append((p, tat - busy, tat))
+        ax.annotate(f"chờ {tat - busy} · turnaround {tat}", (1.0, i),
+                    xycoords=("axes fraction", "data"), xytext=(10, 0),
+                    textcoords="offset points", va="center", fontsize=9, color=INK2)
+    handles = [Patch(facecolor=WAIT, label="đang chờ trong hàng đợi"),
+               Line2D([0], [0], color=INK, linewidth=1.6, marker="|", markersize=0,
+                      label="nạp (Loaded)"),
+               Line2D([0], [0], color="none", marker="o", markerfacecolor=INK,
+                      markersize=6, label="kết thúc (finished)")]
+    handles = [Patch(facecolor=color[p], label=f"P{p} đang chạy") for p in order] + handles
+    fig.legend(handles=handles, loc="lower center", ncol=min(len(handles), 5),
+               frameon=False, fontsize=8.5, bbox_to_anchor=(0.46, 0.0))
+    header(fig, title,
+           f"Nguồn: output_run/{test}.output · chờ = turnaround − số slot chạy · "
+           f"turnaround = slot kết thúc − slot nạp · chạy {stamps.get('started', '?')}", h_px)
+    fig.savefig(out, dpi=DPI, facecolor=SURFACE)
+    plt.close(fig)
+    print(f"saved {out}: " + ", ".join(f"P{p} wait={w} tat={t}" for p, w, t in stats))
+
+
+# ---- chart 24: os_4_swap - who sits in each RAM frame -------------------------
+def chart_swap(run_dir, out, stamps):
+    """Columns = every page-table dump in the log (state after that operation).
+    Rows = RAM frame 0, frame 1, swap offset 0, swap offset 1."""
+    path = os.path.join(run_dir, "os_4_swap.output")
+    lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+    dumps, slot, i = [], -1, 0
+    while i < len(lines):
+        m = re.match(r"Time slot\s+(\d+)", lines[i])
+        if m:
+            slot = int(m.group(1))
+        m = re.match(r"===== PHYSICAL MEMORY AFTER (\w+) =====", lines[i])
+        if m:
+            what, desc, state, j = m.group(1), lines[i + 1].strip(), {}, i + 1
+            where = {}
+            while j + 1 < len(lines) and not lines[j + 1].startswith(("Time slot", "=====")):
+                j += 1
+                pm = re.search(r"page=(\d+) -> (frame|swapoff)=(\d+)", lines[j])
+                if pm:
+                    state[(pm.group(2), int(pm.group(3)))] = int(pm.group(1))
+                    where.setdefault("_ln", {})[(pm.group(2), int(pm.group(3)))] = j + 1
+            dumps.append(dict(slot=slot, what=what, desc=desc, state=state, line=i + 1,
+                              ln=where.get("_ln", {})))
+            i = j
+        i += 1
+    rows = [("frame", 0, "RAM frame 0"), ("frame", 1, "RAM frame 1"),
+            ("swapoff", 0, "Swap off 0"), ("swapoff", 1, "Swap off 1")]
+    pages = sorted({p for d in dumps for p in d["state"].values()})
+    pcol = {p: PALETTE[k] for k, p in enumerate(pages)}
+    short = {"ALLOCATION": "alloc", "WRITING": "write", "READING": "read",
+             "DEALLOCATION": "free"}
+
+    def label(d):
+        m = re.search(r"Region=(\d+)", d["desc"]) or re.search(r"region=(\d+)", d["desc"])
+        v = re.search(r"value=(\d+)", d["desc"])
+        return f"{short.get(d['what'], d['what'].lower())} r{m.group(1) if m else '?'}" + \
+            (f" ={v.group(1)}" if v else "")
+
+    n = len(dumps)
+    fig, h_px = new_fig(len(rows), 11, top_px=118, bottom_px=150, row_px=46 * PX)
+    top, bottom = 118 * PX, 150 * PX
+    ax = fig.add_axes([0.13, bottom / h_px, 0.84, 1 - (top + bottom) / h_px])
+    ax.set_facecolor(SURFACE)
+    ax.set_xlim(0, n)
+    ax.set_ylim(len(rows) - 0.5, -0.5)
+    ax.set_yticks(range(len(rows)))
+    ax.set_yticklabels([r[2] for r in rows])
+    ax.set_xticks([k + 0.5 for k in range(n)])
+    ax.set_xticklabels([f"slot {d['slot']}\n(dòng {d['line']})" for d in dumps],
+                       fontsize=8.5, color=INK2)
+    ax.tick_params(length=0)
+    for sp in ax.spines.values():
+        sp.set_visible(False)
+    ax.axhline(1.5, color=AXIS, linewidth=1, zorder=1)       # RAM | swap divider
+    for k, d in enumerate(dumps):
+        ax.text(k + 0.5, -0.78, label(d), ha="center", va="bottom", fontsize=9,
+                color=INK, fontweight="bold")
+        for r, (kind_, idx, _) in enumerate(rows):
+            p = d["state"].get((kind_, idx))
+            if p is None:
+                ax.add_patch(Rectangle((k + 0.04, r - 0.32), 0.92, 0.64, facecolor="none",
+                                       edgecolor=GRID, linewidth=1, zorder=2))
+                continue
+            ax.add_patch(Rectangle((k + 0.04, r - 0.32), 0.92, 0.64, facecolor=pcol[p],
+                                   edgecolor="none", zorder=3))
+            ax.text(k + 0.5, r, f"page {p}", ha="center", va="center", fontsize=9,
+                    fontweight="bold", color=INK_ON.get(pcol[p], "#ffffff"), zorder=4)
+    # swap-out events: a page that is in a swap slot now but was not before.
+    # FIFO check: among pages resident in RAM just before, the victim must be
+    # the one that entered RAM earliest (entry = first dump showing it in a frame).
+    entered, notes, ev = {}, [], 0
+    for k, d in enumerate(dumps):
+        frames_now = {q: f for (kk, f), q in d["state"].items() if kk == "frame"}
+        if k:
+            prev = dumps[k - 1]["state"]
+            in_ram_before = [q for (kk, _), q in prev.items() if kk == "frame"]
+            for (kind_, idx), p in sorted(d["state"].items()):
+                if kind_ != "swapoff" or prev.get((kind_, idx)) == p:
+                    continue
+                ev += 1
+                mark = "①②③④⑤⑥"[ev - 1]
+                ax.text(k + 0.08, 2 + idx - 0.27, mark, fontsize=9, color="#ffffff",
+                        fontweight="bold", va="top", ha="left", zorder=5)
+                oldest = min(in_ram_before, key=lambda q: entered[q][0])
+                newcomer = [q for q in frames_now if q not in in_ram_before]
+                fifo = "đúng FIFO" if oldest == p else f"KHÔNG phải FIFO (cũ nhất là page {oldest})"
+                txt = (f"{mark} slot {d['slot']}, {label(d)} (dòng {d['ln'][(kind_, idx)]}): "
+                       f"page {p} ra swap off {idx} — page {p} vào RAM từ slot {entered[p][0]} "
+                       f"(dòng {entered[p][1]}), sớm nhất trong {sorted(in_ram_before)} → {fifo}")
+                if newcomer:
+                    q = newcomer[0]
+                    txt += (f"; page {q} vào frame {frames_now[q]} "
+                            f"(dòng {d['ln'][('frame', frames_now[q])]})")
+                notes.append(txt)
+        for q, f in frames_now.items():
+            if q not in entered or (k and q not in
+                                    [x for (kk, _), x in dumps[k - 1]["state"].items() if kk == "frame"]):
+                entered[q] = (d["slot"], d["ln"][("frame", f)])
+    for r, t in enumerate(notes):
+        fig.text(0.02, (bottom - 64 * PX - r * 20 * PX) / h_px, t, fontsize=8.8, color=INK,
+                 va="top")
+    header(fig, "os_4_swap — RAM 2 frame: page nào nằm ở đâu sau mỗi thao tác",
+           "Mỗi cột = một bảng trang in trong output_run/os_4_swap.output (PT[...] page -> "
+           f"frame/swapoff) · ô viền rỗng = trống · chạy {stamps.get('started', '?')}", h_px)
+    fig.legend(handles=[Patch(facecolor=pcol[p], label=f"page {p}") for p in pages],
+               loc="lower center", ncol=len(pages), frameon=False, fontsize=9,
+               bbox_to_anchor=(0.55, 0.0))
+    fig.savefig(out, dpi=DPI, facecolor=SURFACE)
+    plt.close(fig)
+    print(f"saved {out}: {n} dumps, {ev} swap-out events")
+    for t in notes:
+        print("   ", t)
+
+
 def main():
     run_dir, img_dir = sys.argv[1], sys.argv[2]
     rows, stamps = parse_console(run_dir)
     chart_tests(run_dir, os.path.join(img_dir, "16_chart_tests.png"), rows, stamps)
     mm = chart_mm64(run_dir, os.path.join(img_dir, "17_chart_mm64_stats.png"), rows, stamps)
     chart_demand(os.path.join(img_dir, "18_chart_demand.png"), mm, stamps)
+    chart_timeline(run_dir, "sched_0", os.path.join(img_dir, "21_timeline_sched_0.png"),
+                   "sched_0 — mỗi process: lúc chạy, lúc chờ (1 CPU)", stamps)
+    chart_timeline(run_dir, "sched", os.path.join(img_dir, "22_timeline_sched.png"),
+                   "sched — mỗi process: lúc chạy, lúc chờ (2 CPU)", stamps)
+    chart_timeline(run_dir, "os_0_mlq_paging", os.path.join(img_dir, "23_timeline_os_0.png"),
+                   "os_0_mlq_paging — mỗi process: lúc chạy, lúc chờ (2 CPU)", stamps)
+    chart_swap(run_dir, os.path.join(img_dir, "24_swap_frames.png"), stamps)
 
 
 if __name__ == "__main__":
