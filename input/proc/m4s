@@ -1,0 +1,7 @@
+1 6
+alloc 4096 1
+alloc 4096 2
+write 11 1 0
+write 22 2 0
+alloc 100 3
+read 1 0 5

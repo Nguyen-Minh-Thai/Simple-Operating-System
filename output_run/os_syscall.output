@@ -1,0 +1,23 @@
+Time slot   0
+Initialized dma software prototype engine (no Verilator RTL)
+ld_routine
+Time slot   1
+	Loaded a process at input/proc/sc2, PID: 1 PRIO: 15
+Time slot   2
+	CPU 0: Dispatched process  1
+liballoc failed: PID=1 region=1 size=100
+Invalid memory operation: PID=1 write on unallocated region 1
+Time slot   3
+	CPU 0: Put process  1 to run queue
+	CPU 0: Dispatched process  1
+Invalid memory operation: PID=1 write on unallocated region 1
+Time slot   4
+Invalid memory operation: PID=1 write on unallocated region 1
+Time slot   5
+	CPU 0: Put process  1 to run queue
+	CPU 0: Dispatched process  1
+Time slot   6
+Time slot   7
+	CPU 0: Processed  1 has finished
+	CPU 0 stopped
+MM64 stats: directory tables allocated=2 (storage=8 KB), pte walks=0

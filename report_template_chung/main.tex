@@ -1,0 +1,494 @@
+\documentclass[a4paper, 12pt]{article}
+\usepackage{vntex}
+%\usepackage[english,vietnam]{babel}
+%\usepackage[utf8]{vietnam}
+
+%\usepackage[utf8]{inputenc}
+%\usepackage[francais]{babel}
+\usepackage{float}
+\usepackage{a4wide,amssymb,epsfig,latexsym,multicol,array,hhline,fancyhdr}
+\usepackage{amsmath}
+\usepackage{lastpage}
+\usepackage[lined,boxed,commentsnumbered]{algorithm2e}
+\usepackage{enumerate}
+\usepackage{color}
+\usepackage{graphicx}							% Standard graphics package
+\usepackage{tabularx, caption}
+\usepackage{multirow}
+\usepackage{rotating}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{longtable}
+\usepackage{setspace}
+\usepackage{tikz}
+\usepackage{adjustbox}
+\usepackage{blindtext}
+\usepackage{cite}
+\usepackage{enumitem}
+\usepackage[justification=centering]{caption}
+\usetikzlibrary{arrows,snakes,backgrounds}
+\usepackage{hyperref}
+\usepackage{listings}
+\hypersetup{urlcolor=blue,linkcolor=black,citecolor=black,colorlinks=true} 
+
+% Cấu hình hiển thị code C chuẩn GNU cho các thành viên chèn code
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+
+\lstdefinestyle{cstyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue}\bfseries,
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=4,
+    frame=single,
+    language=C
+}
+\lstset{style=cstyle}
+
+\setlength{\headheight}{40pt}
+\pagestyle{fancy}
+\fancyhead{} % clear all header fields
+\fancyhead[L]{
+ \begin{tabular}{rl}
+    \begin{picture}(25,15)(0,0)
+    \put(0,-8){\includegraphics[width=8mm, height=8mm]{images/hcmut.png}}
+   \end{picture}&
+	\begin{tabular}{1}
+		\small
+		\textbf{\bf \ttfamily Trường Đại Học Bách Khoa Tp.Hồ Chí Minh}\\
+		\textbf{\bf \ttfamily Khoa Khoa Học và Kỹ Thuật Máy Tính}
+	\end{tabular} 	
+ \end{tabular}
+}
+\fancyhead[R]{
+	\begin{tabular}{l}
+		\tiny \bf \\
+		\tiny \bf 
+	\end{tabular}  }
+\fancyfoot{} % clear all footer fields
+\fancyfoot[L]{\scriptsize \ttfamily Simple Operating System - Operating Systems (CO2018)}
+\fancyfoot[R]{\scriptsize \ttfamily Trang {\thepage}/\pageref{LastPage}}
+\renewcommand{\headrulewidth}{0.3pt}
+\renewcommand{\footrulewidth}{0.3pt}
+
+%%%
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{3}
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{\z@}%
+                                     {-3.5ex \@plus -1ex \@minus -.2ex}%
+                                     {2.3ex \@plus .2ex}%
+                                     {\normalfont\fontsize{14}{16}\selectfont\bfseries}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+                                     {-3.25ex\@plus -1ex \@minus -.2ex}%
+                                     {1.5ex \@plus .2ex}%
+                                     {\normalfont\fontsize{12}{14}\selectfont\bfseries}}
+\renewcommand\subsubsection{\@startsection{subsubsection}{3}{\z@}%
+                                     {-3.25ex\@plus -1ex \@minus -.2ex}%
+                                     {1.5ex \@plus .2ex}%
+                                     {\normalfont\fontsize{12}{14}\selectfont\bfseries}}
+\newcounter {subsubsubsection}[subsubsection]
+\renewcommand\thesubsubsubsection{\thesubsubsection .\@alph\c@subsubsubsection}
+\newcommand\subsubsubsection{\@startsection{subsubsubsection}{4}{\z@}%
+                                     {-3.25ex\@plus -1ex \@minus -.2ex}%
+                                     {1.5ex \@plus .2ex}%
+                                     {\normalfont\normalsize\bfseries}}
+\newcommand*\l@subsubsubsection{\@dottedtocline{3}{10.0em}{4.1em}}
+\newcommand*{\subsubsubsectionmark}[1]{}
+\makeatother
+
+
+\newcommand{\tocsection}[1]{\section*{#1}\phantomsection\addcontentsline{toc}{section}{#1}}
+\newcommand{\tocsubsection}[1]{\subsection*{#1}\phantomsection\addcontentsline{toc}{subsection}{#1}}
+\newcommand{\tocsubsubsection}[1]{\subsubsection*{#1}\phantomsection\addcontentsline{toc}{subsubsection}{#1}}
+
+\begin{document}
+\begin{titlepage}
+\begin{center}
+ĐẠI HỌC QUỐC GIA THÀNH PHỐ HỒ CHÍ MINH \\
+TRƯỜNG ĐẠI HỌC BÁCH KHOA \\
+KHOA KHOA HỌC VÀ KỸ THUẬT MÁY TÍNH 
+\end{center}
+
+\vspace{1cm}
+
+\begin{figure}[h!]
+\begin{center}
+\includegraphics[width=3cm]{images/hcmut.png}
+\end{center}
+\end{figure}
+
+\vspace{1cm}
+
+\begin{center}
+\begin{tabular}{c}
+\multicolumn{1}{c}{\color{blue}{{\textbf{{\Large HỆ ĐIỀU HÀNH (CO2018)}}}}}\\
+~~\\
+\hline
+\\
+\multicolumn{1}{c}{\color{blue}{\textbf{{BÀI TẬP LỚN (ASSIGNMENT)}}}}\\
+\\
+\color{blue}{\textbf{{\large SIMPLE OPERATING SYSTEM}}}\\
+\\
+\hline
+\end{tabular}
+\end{center}
+
+\vspace{1cm}
+
+\begin{table}[h!]
+    \begin{tabular}{rrl}
+    \hspace{3.5 cm} & \textbf{GVHD:} & Nguyễn Tuấn Huy \\
+    & \textbf{SV thực hiện:} & 1. Trần Ngọc Thiện -- MSSV: 2413297 \\
+    &                        & 2. Trần Tiến Thành -- MSSV: 2413182 \\
+    &                        & 3. Nguyễn Thái Minh Trí -- MSSV: 2413646 \\
+    &                        & 4. Nguyễn Lâm Sơn -- MSSV: 2413012 \\
+    &                        & 5. Nguyễn Minh Thái -- MSSV: 2413133 \\
+    \end{tabular}
+\end{table}
+
+\vspace{1cm}
+\begin{center}
+{\footnotesize TP. HỒ CHÍ MINH, THÁNG 11/2026}
+\end{center}
+\end{titlepage}
+
+\newpage
+\tableofcontents
+\newpage
+
+% =============================================================================
+% PHẦN 1: TỔNG QUAN & PHÂN CÔNG NHIỆM VỤ
+% =============================================================================
+\tocsection{1. Tổng quan}
+
+\tocsubsection{1.1. Giới thiệu chung về Simple Operating System}
+Bài tập lớn môn Hệ điều hành xây dựng và mô phỏng một hệ điều hành đa nhiệm (multitasking), đa xử lý (multi-processor) trên phần cứng ảo hóa. Hệ thống hoạt động theo cơ chế hai chế độ (\textit{User mode} và \textit{Kernel mode}), bao gồm ba thành phần cốt lõi:
+\begin{itemize}
+    \item \textbf{Bộ lập lịch và điều phối (Scheduler \& Dispatcher):} Quản lý hàng đợi đa cấp theo độ ưu tiên (Multi-Level Queue -- MLQ) để cấp phát thời gian sử dụng CPU cho các tiến trình.
+    \item \textbf{Quản lý bộ nhớ ảo và phân trang (Virtual Memory \& Paging):} Cô lập không gian địa chỉ giữa các tiến trình và giữa User space với Kernel space; hỗ trợ ánh xạ địa chỉ phân trang 32-bit và phân trang đa cấp 64-bit (5-level paging) cùng cơ chế hoán đổi trang (Swapping) giữa RAM và SWAP.
+    \item \textbf{Bộ đồng xử lý (Co-processor / DMA Engine):} Mô phỏng cơ chế thực thi bất đồng bộ (Interrupt-driven I/O) và truyền dữ liệu trực tiếp qua bus phần cứng (Bus addressing) sử dụng nền tảng Verilator.
+\end{itemize}
+\newpage
+% =============================================================================
+% PHẦN 2: SCHEDULER - PHỤ TRÁCH: THIỆN
+% =============================================================================
+\tocsection{2. Bộ lập lịch CPU -- Multi-Level Queue Scheduler}
+
+\tocsubsection{2.1. Cơ sở lý thuyết và Chính sách MLQ}
+% TODO [Thiện]: Trình bày nguyên lý hoạt động của thuật toán MLQ trong hệ thống:
+% - Số mức độ ưu tiên: MAX_PRIO = 140 (prio từ 0 đến 139, giá trị càng nhỏ độ ưu tiên càng cao).
+% - Công thức định mức thời gian (slot) cho mỗi hàng đợi: slot = MAX_PRIO - prio.
+% - Cơ chế Round-Robin trong từng hàng đợi theo time_slice và cách chuyển sang hàng đợi kế tiếp khi hết slot.
+
+\tocsubsection{2.2. Chi tiết hiện thực}
+\tocsubsubsection{2.2.1. Thao tác hàng đợi ưu tiên (\texttt{src/queue.c})}
+% TODO [Thiện]: Giải thích logic hàm enqueue() và dequeue() trong file src/queue.c.
+\begin{lstlisting}[caption={Hiện thực hàm enqueue() và dequeue() trong src/queue.c}]
+void enqueue(struct queue_t * q, struct pcb_t * proc) {
+    // ...
+}
+
+struct pcb_t * dequeue(struct queue_t * q) {
+    // ...
+}
+\end{lstlisting}
+
+\tocsubsubsection{2.2.2. Thuật toán lấy tiến trình theo chính sách MLQ (\texttt{src/sched.c})}
+% TODO [Thiện]: Giải thích cách duyệt mảng mlq_ready_queue[MAX_PRIO], cách kiểm tra và trừ slot, và cách reset lại slot khi đã duyệt hết một vòng các hàng đợi.
+\begin{lstlisting}[caption={Hiện thực hàm get\_mlq\_proc() / get\_proc() trong src/sched.c}]
+struct pcb_t * get_mlq_proc(void) {
+    // ...
+}
+\end{lstlisting}
+
+\tocsubsection{2.3. Kết quả thực nghiệm và Biểu đồ Gantt (Gantt Diagram)}
+% YÊU CẦU BẮT BUỘC TRONG ĐỀ (Mục 3.3): Draw a Gantt diagram describing how processes are executed by the CPU.
+% TODO [Thiện]: 
+% 1. Chèn log output khi chạy các file cấu hình mẫu (ví dụ: os_sched, ...).
+% 2. Vẽ biểu đồ Gantt minh họa thứ tự các tiến trình (P0, P1, ...) được cấp phát trên các CPU theo từng Time Slot.
+% 3. Giải thích vì sao kết quả thực thi khớp với lý thuyết lập lịch MLQ.
+
+\begin{figure}[H]
+    \centering
+    % \includegraphics[width=0.95\textwidth]{images/gantt_chart.png}
+    \fbox{\parbox{1\textwidth}{\centering \vspace{2cm} \textbf{[TODO - Thiện: Chèn hình ảnh hoặc vẽ Biểu đồ Gantt thực thi tiến trình tại đây]} \vspace{2cm}}}
+    \caption{Biểu đồ Gantt mô tả quá trình thực thi các tiến trình trên CPU}
+    \label{fig:gantt_chart}
+\end{figure}
+
+\tocsubsection{2.4. Trả lời câu hỏi lý thuyết (Mục 2.1 -- Trang 13)}
+\noindent\textbf{Câu hỏi:} \textit{``Considering the impactness of MLQ detailed policies, what is the benefit of each policy?''}
+
+\medskip
+\noindent\textbf{Trả lời:}
+% TODO [Thiện]: Phân tích lợi ích của từng chính sách trong MLQ:
+% 1. Phân chia thành nhiều hàng đợi theo độ ưu tiên cố định (Fixed Priority Queues): Đảm bảo các tiến trình quan trọng (system processes, interactive tasks có prio nhỏ) luôn được ưu tiên phục vụ sớm, giảm thời gian phản hồi (response time).
+% 2. Cấp phát hạn ngạch (slot = MAX_PRIO - prio) kết hợp duyệt vòng qua các hàng đợi: Ngăn chặn hiện tượng đói tài nguyên (Starvation) thường gặp ở lập lịch ưu tiên tuyệt đối. Dù hàng đợi ưu tiên cao vẫn còn tiến trình, khi dùng hết số slot quy định, CPU vẫn chuyển xuống phục vụ các hàng đợi ưu tiên thấp hơn.
+% 3. Lập lịch Round-Robin với time_slice bên trong mỗi hàng đợi: Đảm bảo tính công bằng (fairness) giữa các tiến trình có cùng mức độ ưu tiên.
+% 4. Cơ chế Dual-priority (default priority trong file chương trình và live priority khi nạp tiến trình): Linh hoạt điều chỉnh mức ưu tiên theo ngữ cảnh thực thi thực tế của người dùng hoặc quản trị viên.
+
+\newpage
+% =============================================================================
+% PHẦN 3: PAGING CỐT LÕI & VÙNG NHỚ - PHỤ TRÁCH: THÀNH
+% =============================================================================
+\tocsection{3. Quản lý Bộ nhớ và Phân trang Cốt lõi}
+
+\tocsubsection{3.1. Bố cục Bộ nhớ Tiến trình (Process Memory Layout)}
+% TODO [Thành]: Trình bày cấu trúc quản lý bộ nhớ ảo của mỗi tiến trình:
+% - struct mm_struct: Quản lý bảng trang (pgd), danh sách vùng nhớ (mmap), bảng ký hiệu vùng nhớ (symrgtbl[PAGING_MAX_SYMTBL_SZ]), danh sách trang FIFO (fifo_pgn).
+% - struct vm_area_struct: Quản lý phân đoạn nhớ liên tục [vm_start, vm_end], giới hạn cấp phát thực tế qua con trỏ sbrk, và danh sách vùng nhớ trống (vm_freerg_list).
+% - struct vm_rg_struct: Quản lý từng biến/vùng nhớ [rg_start, rg_end] và bit đặc quyền mode_bit (usermode = 1, kernelmode = 0).
+
+\tocsubsection{3.2. Chi tiết hiện thực các Thao tác Bộ nhớ và Swapping}
+\tocsubsubsection{3.2.1. Cấp phát và Thu hồi bộ nhớ (\texttt{ALLOC}, \texttt{KMALLOC}, \texttt{FREE})}
+% TODO [Thành]: Giải thích luồng hoạt động trong libmem.c và mm-vm.c:
+% - Khi gọi ALLOC: Tìm vùng trống trong vm_freerg_list (get_free_vmrg_area). Nếu không đủ, gọi syscall memmap (SYSMEM_INC_OP -> inc_vma_limit) để nâng sbrk và ánh xạ thêm frame vật lý vào PTE.
+% - Khi gọi FREE: Thu hồi vùng nhớ trong symrgtbl và đưa vào vm_freerg_list (enlist_vm_freerg_list), gộp các vùng trống liền kề nếu có.
+
+\begin{lstlisting}[caption={Hiện thực cấp phát và mở rộng vùng nhớ trong libmem.c / mm-vm.c}]
+// To do code 
+\end{lstlisting}
+
+\tocsubsubsection{3.2.2. Đọc/Ghi bộ nhớ (\texttt{READ}, \texttt{WRITE}) và Hoán đổi trang (Swapping)}
+% TODO [Thành]: Giải thích quá trình truy cập trang trong pg_getpage():
+% - Kiểm tra bit PRESENT trong PTE.
+% - Nếu trang không nằm trong RAM (Page Fault / Swapped out): Tìm trang nạn nhân (find_victim_page theo cơ chế FIFO), chuyển trang nạn nhân từ MEMRAM sang MEMSWP (__mm_swap_page / SYSMEM_SWP_OP), nạp trang cần dùng từ MEMSWP vào MEMRAM và cập nhật lại PTE.
+% - Kiểm tra quyền truy cập (READ/WRITE chỉ được phép truy cập vùng nhớ userspace, ngăn chặn truy cập trái phép vào kernelspace).
+
+\tocsubsection{3.3. Kết quả thực nghiệm: Trạng thái cấp phát bộ nhớ trong Data Segments}
+% YÊU CẦU BẮT BUỘC TRONG ĐỀ (Mục 3.3): Show the status of memory allocation in the data segments.
+% TODO [Thành]: Chèn kết quả chạy test (in ra trạng thái bảng trang, danh sách vùng nhớ đã cấp phát symrgtbl, vm_freerg_list, các frame trong RAM/SWAP sau các lệnh alloc, free, read, write) và giải thích chi tiết.
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{1\textwidth}{\centering \vspace{1.5cm} \textbf{[TODO - Thành: Chèn ảnh chụp / log trạng thái cấp phát bộ nhớ trong Data Segments tại đây]} \vspace{1.5cm}}}
+    \caption{Trạng thái cấp phát bộ nhớ và ánh xạ Page--Frame khi thực thi tiến trình}
+    \label{fig:mem_status}
+\end{figure}
+
+\tocsubsection{3.4. Trả lời câu hỏi lý thuyết}
+
+\tocsubsubsection{3.4.1. Câu hỏi 1 (Mục 2.2.2 -- Trang 17)}
+\noindent\textbf{Câu hỏi:} \textit{``What is the primary motivation for combining segmentation with paging in memory management? How does this hybrid approach address limitations inherent in using either technique alone?''}
+
+\medskip
+\noindent\textbf{Trả lời:}
+% TODO [Thành]: Trả lời chi tiết:
+% - Động lực chính (Primary motivation): Kết hợp ưu điểm quản lý logic theo cấu trúc chương trình (code, data, heap, stack) và phân quyền bảo vệ của Segmentation với ưu điểm cấp phát bộ nhớ vật lý không liên tục, triệt tiêu phân mảnh ngoại vi (external fragmentation) của Paging.
+% - Khắc phục hạn chế của từng kỹ thuật đơn lẻ:
+%   + Hạn chế của Segmentation thuần túy: Yêu cầu cấp phát vùng nhớ vật lý liên tục kích thước thay đổi -> gây phân mảnh ngoại vi nghiêm trọng và tốn chi phí nén bộ nhớ (compaction). Khi kết hợp với Paging, mỗi segment được chia thành các trang cố định nên không cần nằm liênếp nhau trong RAM.
+%   + Hạn chế của Paging thuần túy: Không gian địa chỉ phẳng, khó phân tách rạch ròi quyền truy cập (r/w/x) và chia sẻ mã lệnh theo đơn vị logic. Nhờ lớp Segmentation (vm_area_struct) bên trên, hệ điều hành dễ dàng kiểm soát giới hạn vùng nhớ (vm_start, vm_end, sbrk) và quyền đặc quyền (mode_bit) trước khi dịch xuống trang vật lý.
+
+\tocsubsubsection{3.4.2. Câu hỏi 2 (Mục 2.2.4 -- Trang 19)}
+\noindent\textbf{Câu hỏi:} \textit{``What are the advantages and disadvantages of paging and contiguous memory allocation?''}
+
+\medskip
+\noindent\textbf{Trả lời:}
+% TODO [Thành]: Lập bảng hoặc phân tích so sánh ưu/nhược điểm của Paging và Contiguous Memory Allocation (tốc độ dịch địa chỉ, hiện tượng phân mảnh nội/ngoại vi, khả năng mở rộng, chi phí lưu trữ bảng trang, khả năng chia sẻ bộ nhớ và swap).
+
+\newpage
+% =============================================================================
+% PHẦN 4: PHÂN TRANG ĐA CẤP 64-BIT - PHỤ TRÁCH: TRÍ
+% =============================================================================
+\tocsection{4. Phân trang Đa cấp 64-bit (Multi-level Paging)}
+
+\tocsubsection{4.1. Không gian Địa chỉ 64-bit, Canonical Address và Bố cục Vùng nhớ}
+% TODO [Trí]: Trình bày:
+% - Cấu trúc địa chỉ 64-bit với 5-level paging (mở rộng không gian địa chỉ ảo lên đến 128 PiB, sử dụng các bit 0..56).
+% - Quy tắc Canonical Address (các bit cao không sử dụng 63..57 phải được cố định bằng 0 đối với User space hoặc 1 đối với Kernel space).
+% - Thiết kế bố cục vùng nhớ (Memory Layout) theo mô hình macOS / Linux (quản lý các vùng nhớ nhỏ, vừa và lớn; hoặc KERNEL_BASE_ADDR).
+
+\tocsubsection{4.2. Sơ đồ Dịch Địa chỉ Phân trang Đa cấp (Address Translation Scheme)}
+% YÊU CẦU BẮT BUỘC TRONG ĐỀ (Mục 3.3): Show the multi-level paging address translation scheme.
+% TODO [Trí]: Trình bày chi tiết cách tách các trường bit từ địa chỉ ảo 64-bit:
+% - Bits 56-48 (9 bits): Page Global Directory (PGD - Level 5) -> Index = (addr >> 48) & 0x1ff
+% - Bits 47-39 (9 bits): Page Level 4 Directory (P4D - Level 4) -> Index = (addr >> 39) & 0x1ff
+% - Bits 38-30 (9 bits): Page Upper Directory (PUD - Level 3) -> Index = (addr >> 30) & 0x1ff
+% - Bits 29-21 (9 bits): Page Middle Directory (PMD - Level 2) -> Index = (addr >> 21) & 0x1ff
+% - Bits 20-12 (9 bits): Page Table (PT - Level 1) -> Index = (addr >> 12) & 0x1ff
+% - Bits 11-0  (12 bits): Page Offset (4KB Page)
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{1\textwidth}{\centering \vspace{2cm} \textbf{[TODO - Trí: Chèn Sơ đồ dịch địa chỉ phân trang 5 cấp 64-bit (PGD $\rightarrow$ P4D $\rightarrow$ PUD $\rightarrow$ PMD $\rightarrow$ PT $\rightarrow$ Physical Frame) tại đây]} \vspace{2cm}}}
+    \caption{Sơ đồ dịch địa chỉ trong hệ thống phân trang đa cấp 64-bit}
+    \label{fig:multilevel_paging_scheme}
+\end{figure}
+
+\tocsubsection{4.3. Chiến lược Tối ưu hóa Bảng trang và Hiện thực (\texttt{src/mm64.c})}
+% TODO [Trí]: Trình bày chiến lược thiết kế đã chọn (Demand allocation of page tables / Sparse allocation) để chỉ cấp phát các bảng trang con khi vùng địa chỉ ảo đó thực sự được sử dụng, cùng mã nguồn minh họa trong src/mm64.c.
+
+\begin{lstlisting}[caption={Hiện thực dịch địa chỉ và quản lý bảng trang 5 cấp trong src/mm64.c}]
+// To do code 
+\end{lstlisting}
+
+\tocsubsection{4.4. Thống kê Số lần Truy xuất Bộ nhớ và Kích thước Lưu trữ Bảng trang}
+% YÊU CẦU BẮT BUỘC TRONG ĐỀ (Mục 3.2): In the report and output, students must present statistics on the number of memory accesses and the size of multilevel paging storage, and they must explain the benefits of their design.
+% TODO [Trí]: Điền số liệu thực nghiệm thu được khi chạy các testcase 64-bit vào bảng dưới đây và phân tích lợi ích thiết kế.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}X|>{\centering\arraybackslash}X|>{\centering\arraybackslash}X|>{\centering\arraybackslash}X|}
+\hline
+\textbf{Testcase / Kịch bản} & \textbf{Số lượng trang cấp phát} & \textbf{Tổng số lần truy xuất bộ nhớ} & \textbf{Dung lượng bảng trang đa cấp (Bytes/KB)} \\
+\hline
+Testcase 1 (\texttt{input/...}) & [Điền số liệu] & [Điền số liệu] & [Điền số liệu] \\
+\hline
+Testcase 2 (\texttt{input/...}) & [Điền số liệu] & [Điền số liệu] & [Điền số liệu] \\
+\hline
+Testcase 3 (\texttt{input/...}) & [Điền số liệu] & [Điền số liệu] & [Điền số liệu] \\
+\hline
+\end{tabularx}
+\caption{Thống kê số lần truy xuất bộ nhớ và kích thước lưu trữ bảng trang đa cấp}
+\label{tab:mm64_stats}
+\end{table}
+
+\tocsubsection{4.5. Trả lời câu hỏi lý thuyết (Mục 2.2.3 -- Trang 18)}
+\noindent\textbf{Câu hỏi:} \textit{``What are the benefits of extending hierarchical paging to N level?''}
+
+\medskip
+\noindent\textbf{Trả lời:}
+% TODO [Trí]: Phân tích lợi ích của phân trang phân cấp N-level:
+% 1. Tiết kiệm bộ nhớ lưu trữ bảng trang (Avoid allocating contiguous giant page tables): Với không gian địa chỉ 64-bit, bảng trang 1 cấp phẳng sẽ cần hàng Petabyte/Terabyte bộ nhớ liên tục cho mỗi tiến trình (bất khả thi). Chia thành N cấp giúp chỉ cần cấp phát các nhánh cây bảng trang cho những vùng địa chỉ thực sự được sử dụng (Sparse address space).
+% 2. Cấp phát bảng trang vừa khít kích thước khung trang (Page-sized directory tables): Mỗi bảng ở từng cấp có kích thước nhỏ gọn (ví dụ 512 entries * 8 bytes = 4KB, vừa đúng 1 frame), giúp hệ điều hành dễ dàng cấp phát và quản lý bảng trang ngay trên các frame vật lý rời rạc mà không cần vùng nhớ vật lý liên tục lớn.
+% 3. Hỗ trợ linh hoạt chia sẻ bộ nhớ ở cấp độ vùng lớn (Subtree sharing) và Huge Pages (dừng dịch sớm ở cấp PMD 2MB hoặc PUD 1GB để giảm TLB miss).
+
+\newpage
+% =============================================================================
+% PHẦN 5: CO-PROCESSOR & DMA - PHỤ TRÁCH: SƠN
+% =============================================================================
+\tocsection{5. Bộ đồng xử lý và Truy cập Bộ nhớ Trực tiếp (Co-processor \& DMA)}
+
+\tocsubsection{5.1. Cơ chế Hoạt động Bất đồng bộ và Vào/Ra Hướng ngắt (Interrupt-driven I/O)}
+% TODO [Sơn]: Trình bày quy trình phối hợp bất đồng bộ giữa CPU và Co-processor/DMA (theo Hình 8 & 9 trong đề):
+% - CPU khởi tạo yêu cầu truyền dữ liệu cho DMA (gửi địa chỉ nguồn, đích, kích thước) rồi tiếp tục thực thi lệnh khác thay vì chờ đợi (Programmed I/O).
+% - Khi DMA hoàn tất truyền dữ liệu qua System Bus, tín hiệu ch_done và ngắt IRQ được kích hoạt để thông báo cho CPU xử lý kết quả.
+
+\tocsubsection{5.2. Kiến trúc DMA Controller (\texttt{dma\_top}) và Cơ chế Bus Addressing}
+% TODO [Sơn]: 
+% - Mô tả giao diện chân tín hiệu (pinout) của module dma_top (CLK, RST_N, IRQ, STATE, ch_en, ch_pause, ch_done, ch_error, ch_xfer_count, dat_valid, dat_0..3, dat_ready) với ADDR_WIDTH = 64 bits và DATA_WIDTH = 32 bits.
+% - Phân biệt rõ 2 cơ chế truy xuất bộ nhớ (chiếm 2.0 điểm trong thang điểm Demo):
+%   1. CPU truy xuất bộ nhớ thông qua MMU (Virtual Address -> Page Table Translation -> Physical Address).
+%   2. Co-processor/DMA truy xuất trực tiếp vào bộ nhớ vật lý thông qua Bus Address.
+% - Lưu ý xử lý dữ liệu theo từng byte (byte-by-byte) để tránh xung đột Endianness/ABI.
+
+\tocsubsection{5.3. Tích hợp Phần cứng DMA trên nền tảng Verilator}
+% YÊU CẦU BẮT BUỘC TRONG ĐỀ (Mục 3.2): All group projects and presentations must use the real DMA chip engine, supported by the hardware platform backed by verilator.
+% TODO [Sơn]: Giải thích cách kết nối mã nguồn C của hệ điều hành (lệnh dma_memcpy) với mô hình phần cứng RTL được biên dịch qua Verilator.
+
+\begin{lstlisting}[caption={Hiện thực giao tiếp điều khiển DMA Engine và xử lý lệnh dma\_memcpy}]
+//To do code
+\end{lstlisting}
+
+\tocsubsection{5.4. Kết quả Thực nghiệm Truyền Dữ liệu DMA}
+% TODO [Sơn]: Chèn log thực nghiệm trước và sau khi gọi dma_memcpy (Before copy / After copy, trạng thái thanh ghi tín hiệu DMA, số chu kỳ/lượt truyền ch_xfer_count).
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{1\textwidth}{\centering \vspace{1.5cm} \textbf{[TODO - Sơn: Chèn ảnh chụp kết quả chạy lệnh \texttt{dma\_memcpy} với Verilator DMA Engine tại đây]} \vspace{1.5cm}}}
+    \caption{Kết quả truyền dữ liệu bộ nhớ thông qua bộ đồng xử lý DMA}
+    \label{fig:dma_result}
+\end{figure}
+
+\newpage
+% =============================================================================
+% PHẦN 6: SYSCALL, ĐỒNG BỘ HÓA & TÍCH HỢP - PHỤ TRÁCH: THÁI
+% =============================================================================
+\tocsection{6. Giao diện Hệ thống (System Calls), Đồng bộ hóa và Tích hợp}
+
+\tocsubsection{6.1. Thiết kế Hệ thống System Call và Cô lập User/Kernel Space}
+% TODO [Thái]:
+% - Mô tả cơ chế gọi hàm hệ thống từ bảng syscall.tbl -> syscall.c -> các hàm xử lý __sys_xxxhandler (như listsyscall, memmap).
+% - Phân tách không gian bộ nhớ User space và Kernel space: Hiện thực và kiểm thử các lệnh kmalloc, copy_from_user, copy_to_user.
+
+\tocsubsection{6.2. Cơ chế Truyền PID qua System Call (PID Passing)}
+% YÊU CẦU BẮT BUỘC TRONG ĐỀ (Mục 3.2 & 3.3): Direct access from user space through a process PCB is not allowed; only struct krnl_t may be used. You must ensure that communication between kernel space and user space through system calls uses PID passing, not direct PCB passing.
+% TODO [Thái]: Trình bày rõ cách truyền PID từ tầng ứng dụng (libmem/libstd) xuống tầng nhân qua thanh ghi hệ thống (struct sc_regs), và cách tầng nhân tra cứu tiến trình tương ứng từ cấu trúc struct krnl_t (trong running_list / ready_queue) thay vì dùng trực tiếp con trỏ struct pcb_t từ userspace.
+
+\begin{lstlisting}[caption={Minh chứng truyền PID qua System Call và tra cứu trong Kernel space}]
+// To do code 
+\end{lstlisting}
+
+\tocsubsection{6.3. Đồng bộ hóa Tài nguyên Dùng chung (Synchronization)}
+% TODO [Thái]: Liệt kê các vùng tranh chấp (Critical Sections) khi chạy nhiều CPU đồng thời và các khóa pthread_mutex_t đã đặt:
+% 1. Khóa hàng đợi lập lịch (queue_lock): Bảo vệ các thao tác enqueue(), dequeue(), get_proc(), put_proc() trên ready_queue / mlq_ready_queue và running_list.
+% 2. Khóa bộ nhớ vật lý (memphy_lock / mmvm_lock): Bảo vệ danh sách free_fp_list, used_fp_list và dữ liệu storage của MEMRAM, MEMSWP khi nhiều CPU cùng cấp phát frame, đọc/ghi hoặc swap trang.
+
+\begin{lstlisting}[caption={Hiện thực cơ chế khóa đồng bộ (Mutex Lock) bảo vệ tài nguyên chia sẻ}]
+// To do code 
+\end{lstlisting}
+
+\tocsubsection{6.4. Trả lời câu hỏi lý thuyết}
+
+\tocsubsubsection{6.4.1. Câu hỏi 1 (Mục 1.6.2 -- Trang 9)}
+\noindent\textbf{Câu hỏi:} \textit{``What are the advantages and disadvantages of using the unified system call interface for manipulating different system components, i.e. read/write/free for files, memory and I/O devices. In your analysis, consider how this abstraction influences operating system design, performance trade-offs, error handling complexity, and the balance between portability and efficiency.''}
+
+\medskip
+\noindent\textbf{Trả lời:}
+% TODO [Thái]: Phân tích 4 khía cạnh theo yêu cầu câu hỏi:
+% 1. Thiết kế HĐH (OS Design): Tính trừu tượng hóa cao (như triết lý "Everything is a file" trong UNIX), giúp giao diện lập trình ứng dụng (API) gọn nhẹ, nhất quán, tách biệt hoàn toàn tầng ứng dụng khỏi chi tiết phần cứng bên dưới.
+% 2. Đánh đổi hiệu năng (Performance trade-offs): Chi phí chuyển ngữ cảnh (context switch giữa user mode và kernel mode), chi phí phân loại/điều hướng qua các lớp trung gian (VFS/dispatcher), và khó tối ưu hóa chuyên biệt cho từng loại thiết bị tốc độ cao nếu chỉ dùng giao diện chung.
+% 3. Độ phức tạp khi xử lý lỗi (Error handling complexity): Phải chuẩn hóa nhiều loại lỗi phần cứng khác nhau (lỗi đĩa, lỗi trang bộ nhớ, lỗi mạng) về một tập mã lỗi chung (như errno), đôi khi làm mất thông tin ngữ cảnh chi tiết của từng thiết bị.
+% 4. Cân bằng giữa tính khả chuyển và hiệu quả (Portability vs. Efficiency): Tăng tính khả chuyển (portability) tối đa cho phần mềm ứng dụng, nhưng để đạt hiệu suất cao cho các tác vụ đặc thù (như DMA, GPU hay quản lý bộ nhớ mức thấp), HĐH vẫn cần cung cấp thêm các tham số mở rộng (như cờ trong ioctl/memmap).
+
+\tocsubsubsection{6.4.2. Câu hỏi 2 (Mục 1.6.3 -- Trang 11)}
+\noindent\textbf{Câu hỏi:} \textit{``When a system call executes too long time, how does the Operating system detect and handle the case?''}
+
+\medskip
+\noindent\textbf{Trả lời:}
+% TODO [Thái]: Giải thích cơ chế phát hiện và xử lý khi System Call chạy quá lâu:
+% - Phát hiện (Detection): Thông qua bộ định thời phần cứng (Hardware Timer Interrupt / Watchdog Timer) phát tín hiệu ngắt định kỳ mỗi tick đồng hồ, kết hợp bộ đếm thời gian thực thi của tiến trình/nhân.
+% - Xử lý (Handling):
+%   + Trong nhân có hỗ trợ Preemptive Kernel: Bộ lập lịch có thể tạm dừng (preempt) tiến trình đang thực thi syscall tại các điểm an toàn để nhường CPU cho tiến trình ưu tiên cao hơn.
+%   + Với các tác vụ I/O chờ đợi lâu: Chuyển trạng thái tiến trình sang Waiting/Sleeping (Blocking I/O) hoặc sử dụng cơ chế bất đồng bộ (Asynchronous I/O) kèm cơ chế Timeout (trả về mã lỗi như ETIMEDOUT / EINTR) để tránh treo toàn hệ thống.
+
+\tocsubsubsection{6.4.3. Câu hỏi 3 (Mục 2.4 -- Trang 25)}
+\noindent\textbf{Câu hỏi:} \textit{``What happens if the synchronization is not handled in your Simple OS? Illustrate the problem of your simple OS (assignment outputs) by example if you have any in the added kernel memory operations.''}
+
+\medskip
+\noindent\textbf{Trả lời:}
+% TODO [Thái]: Giải thích hiện tượng Race Condition khi không có đồng bộ hóa và đưa ví dụ minh họa thực tế từ log chạy Simple OS:
+% - Trong Scheduler: Hai CPU cùng gọi get_proc() hoặc enqueue() cùng lúc dẫn đến hai CPU lấy trùng cùng một tiến trình để chạy song song, hoặc làm hỏng chỉ số slot/size của hàng đợi.
+% - Trong Memory Management: Hai tiến trình trên hai CPU cùng gọi cấp phát frame vật lý (MEMPHY_get_freefp) cùng lúc -> cả hai được cấp trùng cùng một Frame Physical Number (FPN), dẫn đến ghi đè dữ liệu của nhau hoặc gây lỗi Segmentation Fault / sai lệch danh sách free_fp_list.
+% - Minh họa bằng đoạn log lỗi khi tắt mutex lock so với khi bật mutex lock.
+
+\newpage
+% =============================================================================
+% PHẦN 7: TỔNG KẾT & GIẢI THÍCH KẾT QUẢ MÔ PHỎNG TỔNG THỂ
+% =============================================================================
+\tocsection{7. Kết quả Tích hợp và Đánh giá Tổng thể}
+
+\tocsubsection{7.1. Kiểm thử Tích hợp Toàn hệ thống}
+% YÊU CẦU BẮT BUỘC TRONG ĐỀ (Mục 3.3): Overall: students should find their own way to interpret the simulation results.
+% TODO [Thái & Cả nhóm]: Tổng hợp kết quả chạy bộ test tích hợp (kết hợp đồng thời MLQ Scheduler + Paging 64-bit + Syscall + DMA + Synchronization trên nhiều CPU).
+
+\tocsubsection{7.2. Nhận xét và Kết luận}
+% TODO [Thái & Cả nhóm]: Đánh giá mức độ hoàn thành các mục tiêu của bài tập lớn, các kinh nghiệm rút ra trong quá trình thiết kế và đồng bộ hóa hệ điều hành đa nhân.
+
+\newpage
+\begin{thebibliography}{9}
+\bibitem{silberschatz} Abraham Silberschatz, Peter B. Galvin, Greg Gagne, \textit{Operating System Concepts}, 10th Edition, Wiley, 2018.
+\bibitem{bovet} Daniel P. Bovet, Marco Cesati, \textit{Understanding the Linux Kernel}, 3rd Edition, O'Reilly Media, 2005.
+\bibitem{gnu_c} Free Software Foundation, \textit{GNU Coding Standards -- Writing C}, \url{https://www.gnu.org/prep/standards/html_node/Writing-C.html}.
+\bibitem{macos_vm} Apple Developer Documentation, \textit{Memory Usage Performance Guidelines -- Virtual Memory Regions}, \url{https://developer.apple.com/library/archive/documentation/Performance/Conceptual/ManagingMemory/Articles/VMPages.html}.
+\bibitem{verilator} Verilator Documentation, \textit{Veripool -- Verilator Open-Source SystemVerilog Simulator}, \url{https://verilator.org/}.
+\end{thebibliography}
+
+\end{document}

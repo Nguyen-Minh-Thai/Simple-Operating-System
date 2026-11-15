@@ -1,0 +1,52 @@
+Time slot   0
+Initialized dma software prototype engine (no Verilator RTL)
+ld_routine
+Time slot   1
+	Loaded a process at input/proc/m4s, PID: 1 PRIO: 15
+	CPU 0: Dispatched process  1
+Time slot   2
+===== PHYSICAL MEMORY AFTER ALLOCATION =====
+PID=1 - Region=1 - Address=0 - Size=4096 byte
+ PDG=0x7fa6ec004a80 P4g=0x7fa6f0000ba0 PUD=0x7fa6f0001bb0 PMD=0x7fa6f0002bc0
+  PT[000] page=0 -> frame=0 (present)
+Time slot   3
+===== PHYSICAL MEMORY AFTER ALLOCATION =====
+PID=1 - Region=2 - Address=4096 - Size=4096 byte
+ PDG=0x7fa6ec004a80 P4g=0x7fa6f0000ba0 PUD=0x7fa6f0001bb0 PMD=0x7fa6f0002bc0
+  PT[000] page=0 -> frame=0 (present)
+  PT[001] page=1 -> frame=1 (present)
+Time slot   4
+	CPU 0: Put process  1 to run queue
+	CPU 0: Dispatched process  1
+===== PHYSICAL MEMORY AFTER WRITING =====
+write region=1 offset=0 value=11
+ PDG=0x7fa6ec004a80 P4g=0x7fa6f0000ba0 PUD=0x7fa6f0001bb0 PMD=0x7fa6f0002bc0
+  PT[000] page=0 -> frame=0 (present)
+  PT[001] page=1 -> frame=1 (present)
+Time slot   5
+===== PHYSICAL MEMORY AFTER WRITING =====
+write region=2 offset=0 value=22
+ PDG=0x7fa6ec004a80 P4g=0x7fa6f0000ba0 PUD=0x7fa6f0001bb0 PMD=0x7fa6f0002bc0
+  PT[000] page=0 -> frame=0 (present)
+  PT[001] page=1 -> frame=1 (present)
+Time slot   6
+	CPU 0: Put process  1 to run queue
+	CPU 0: Dispatched process  1
+===== PHYSICAL MEMORY AFTER ALLOCATION =====
+PID=1 - Region=3 - Address=8192 - Size=100 byte
+ PDG=0x7fa6ec004a80 P4g=0x7fa6f0000ba0 PUD=0x7fa6f0001bb0 PMD=0x7fa6f0002bc0
+  PT[000] page=0 -> swapoff=0 (swapped)
+  PT[001] page=1 -> frame=1 (present)
+  PT[002] page=2 -> frame=0 (present)
+Time slot   7
+libread:489
+===== PHYSICAL MEMORY AFTER READING =====
+read region=1 offset=0 value=11
+ PDG=0x7fa6ec004a80 P4g=0x7fa6f0000ba0 PUD=0x7fa6f0001bb0 PMD=0x7fa6f0002bc0
+  PT[000] page=0 -> frame=1 (present)
+  PT[001] page=1 -> swapoff=1 (swapped)
+  PT[002] page=2 -> frame=0 (present)
+Time slot   8
+	CPU 0: Processed  1 has finished
+	CPU 0 stopped
+MM64 stats: directory tables allocated=6 (storage=24 KB), pte walks=33

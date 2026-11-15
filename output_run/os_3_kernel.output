@@ -1,0 +1,64 @@
+Time slot   0
+Initialized dma software prototype engine (no Verilator RTL)
+ld_routine
+Time slot   1
+	Loaded a process at input/proc/m3s, PID: 1 PRIO: 15
+Time slot   2
+	CPU 0: Dispatched process  1
+===== PHYSICAL MEMORY AFTER ALLOCATION =====
+PID=1 - Region=1 - Address=0 - Size=300 byte
+ PDG=0x7f7988004b20 P4g=0x7f7980000ba0 PUD=0x7f7980001bb0 PMD=0x7f7980002bc0
+  PT[000] page=0 -> frame=0 (present)
+Time slot   3
+===== PHYSICAL MEMORY AFTER WRITING =====
+write region=1 offset=0 value=65
+ PDG=0x7f7988004b20 P4g=0x7f7980000ba0 PUD=0x7f7980001bb0 PMD=0x7f7980002bc0
+  PT[000] page=0 -> frame=0 (present)
+Time slot   4
+	CPU 0: Put process  1 to run queue
+	CPU 0: Dispatched process  1
+===== PHYSICAL MEMORY AFTER WRITING =====
+write region=1 offset=1 value=66
+ PDG=0x7f7988004b20 P4g=0x7f7980000ba0 PUD=0x7f7980001bb0 PMD=0x7f7980002bc0
+  PT[000] page=0 -> frame=0 (present)
+Time slot   5
+===== PHYSICAL MEMORY AFTER WRITING =====
+write region=1 offset=2 value=67
+ PDG=0x7f7988004b20 P4g=0x7f7980000ba0 PUD=0x7f7980001bb0 PMD=0x7f7980002bc0
+  PT[000] page=0 -> frame=0 (present)
+	CPU 0: Put process  1 to run queue
+	CPU 0: Dispatched process  1
+===== KERNEL MEMORY AFTER KMALLOC =====
+PID=1 - Region=2 - KernelAddress=0x100000000000000 - Size=256 byte
+Time slot   6
+Time slot   7
+===== COPY_FROM_USER DONE =====
+PID=1 user_region=1 -> kernel_region=2 offset=0 size=3
+Time slot   8
+	CPU 0: Put process  1 to run queue
+	CPU 0: Dispatched process  1
+===== PHYSICAL MEMORY AFTER ALLOCATION =====
+PID=1 - Region=3 - Address=300 - Size=100 byte
+ PDG=0x7f7988004b20 P4g=0x7f7980000ba0 PUD=0x7f7980001bb0 PMD=0x7f7980002bc0
+  PT[000] page=0 -> frame=0 (present)
+Time slot   9
+===== COPY_TO_USER DONE =====
+PID=1 kernel_region=2 -> user_region=3 offset=0 size=3
+Time slot  10
+	CPU 0: Put process  1 to run queue
+	CPU 0: Dispatched process  1
+libread:489
+===== PHYSICAL MEMORY AFTER READING =====
+read region=3 offset=0 value=65
+ PDG=0x7f7988004b20 P4g=0x7f7980000ba0 PUD=0x7f7980001bb0 PMD=0x7f7980002bc0
+  PT[000] page=0 -> frame=0 (present)
+Time slot  11
+libfree:284
+===== PHYSICAL MEMORY AFTER DEALLOCATION =====
+PID=1 - Region=2
+ PDG=0x7f7988004b20 P4g=0x7f7980000ba0 PUD=0x7f7980001bb0 PMD=0x7f7980002bc0
+  PT[000] page=0 -> frame=0 (present)
+Time slot  12
+	CPU 0: Processed  1 has finished
+	CPU 0 stopped
+MM64 stats: directory tables allocated=10 (storage=40 KB), pte walks=44

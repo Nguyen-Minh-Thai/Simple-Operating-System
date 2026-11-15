@@ -1,0 +1,11 @@
+1 10
+alloc 300 1
+write 65 1 0
+write 66 1 1
+write 67 1 2
+kmalloc 256 2
+copy_from_user 1 2 0 3
+alloc 100 3
+copy_to_user 2 3 0 3
+read 3 0 5
+free 2
