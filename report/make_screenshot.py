@@ -6,11 +6,44 @@ output_run/ (produced by run_tests.sh). Nothing is synthesized.
 
 Usage: make_screenshot.py <logfile> <out.png> <title> [first_line] [last_line]
 """
+import os
 import sys
 from PIL import Image, ImageDraw, ImageFont
 
-FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
-FONT_B = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"
+def _font(name):
+    """DejaVu Sans Mono from the system (Linux) or, if absent (e.g. Windows),
+    the identical copy bundled with matplotlib."""
+    sys_path = os.path.join("/usr/share/fonts/truetype/dejavu", name)
+    if os.path.exists(sys_path):
+        return sys_path
+    import matplotlib
+    return os.path.join(matplotlib.get_data_path(), "fonts", "ttf", name)
+
+FONT = _font("DejaVuSansMono.ttf")
+FONT_B = _font("DejaVuSansMono-Bold.ttf")
+
+def _note_font():
+    """Font for the Vietnamese '... (lược bớt) ...' note lines this script adds.
+    DejaVu Sans Mono lacks glyphs such as U+1EA7 (ầ) and U+1EE7 (ủ), so pick
+    the first candidate that has them. Log lines themselves stay in FONT."""
+    need = "đầủượớ"
+    cands = [FONT, "C:/Windows/Fonts/consola.ttf",
+             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+             _font("DejaVuSans.ttf")]
+    try:
+        from matplotlib import ft2font
+    except ImportError:
+        return FONT
+    for p in cands:
+        try:
+            f = ft2font.FT2Font(p)
+        except Exception:
+            continue
+        if all(f.get_char_index(ord(c)) for c in need):
+            return p
+    return FONT
+
+NOTE_FONT = _note_font()
 
 BG = (24, 24, 32)
 FG = (220, 220, 220)
@@ -38,7 +71,7 @@ def main():
     first = int(sys.argv[4]) if len(sys.argv) > 4 else 1
     last = int(sys.argv[5]) if len(sys.argv) > 5 else 10**9
 
-    with open(log, errors="replace") as f:
+    with open(log, encoding="utf-8", errors="replace") as f:
         all_lines = f.read().splitlines()
     total = len(all_lines)
     lines = all_lines[first - 1:last]
@@ -55,6 +88,7 @@ def main():
     fsize = 15
     font = ImageFont.truetype(FONT, fsize)
     font_b = ImageFont.truetype(FONT_B, fsize)
+    font_note = ImageFont.truetype(NOTE_FONT, fsize)
     lh = fsize + 6
     pad = 14
     titlebar = 34
@@ -75,7 +109,7 @@ def main():
     y = titlebar + pad
     for s in shown:
         if s.startswith("... ("):
-            d.text((pad, y), s, font=font, fill=(150, 150, 160))
+            d.text((pad, y), s, font=font_note, fill=(150, 150, 160))
         else:
             d.text((pad, y), s, font=font, fill=color_for(s))
         y += lh

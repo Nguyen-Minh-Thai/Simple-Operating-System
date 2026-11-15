@@ -7,33 +7,32 @@ Time slot   3
 Time slot   4
 Time slot   5
 	Loaded a process at input/proc/m2s, PID: 1 PRIO: 120
-	CPU 1: Dispatched process  1
+	CPU 0: Dispatched process  1
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=1 - Region=0 - Address=0 - Size=300 byte
- PDG=0x7f66a8004b40 P4g=0x7f66a0000ba0 PUD=0x7f66a0001bb0 PMD=0x7f66a0002bc0
+ PDG=0x7f6c34004850 P4g=0x7f6c2c000bb0 PUD=0x7f6c2c001bc0 PMD=0x7f6c2c002bd0
   PT[000] page=0 -> frame=0 (present)
 Time slot   6
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=1 - Region=1 - Address=300 - Size=100 byte
- PDG=0x7f66a8004b40 P4g=0x7f66a0000ba0 PUD=0x7f66a0001bb0 PMD=0x7f66a0002bc0
+ PDG=0x7f6c34004850 P4g=0x7f6c2c000bb0 PUD=0x7f6c2c001bc0 PMD=0x7f6c2c002bd0
   PT[000] page=0 -> frame=0 (present)
 Time slot   7
-	CPU 1: Put process  1 to run queue
-	CPU 1: Dispatched process  1
+	CPU 0: Put process  1 to run queue
+	CPU 0: Dispatched process  1
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=1 - Region=0
- PDG=0x7f66a8004b40 P4g=0x7f66a0000ba0 PUD=0x7f66a0001bb0 PMD=0x7f66a0002bc0
+ PDG=0x7f6c34004850 P4g=0x7f6c2c000bb0 PUD=0x7f6c2c001bc0 PMD=0x7f6c2c002bd0
   PT[000] page=0 -> frame=0 (present)
 Time slot   8
 ===== KERNEL MEMORY AFTER KMALLOC =====
 PID=1 - Region=2 - KernelAddress=0x100000000000000 - Size=200 byte
-	Loaded a process at input/proc/s0, PID: 2 PRIO: 38
 Time slot   9
-	CPU 1: Put process  1 to run queue
-	CPU 1: Dispatched process  1
-	CPU 0: Dispatched process  2
-Memory bank [0] attached to OS MEMRAM: 1048576 bytes at address 0x558703e01dc0
+	CPU 0: Put process  1 to run queue
+	CPU 0: Dispatched process  1
+	Loaded a process at input/proc/s0, PID: 2 PRIO: 38
+Memory bank [0] attached to OS MEMRAM: 1048576 bytes at address 0x7f6c41ca0010
 dma_testbench modeo with dpi_dma_copy from memory bank
 dpi_dma_copy: src=300, dst=4096, len=4
 Before copy:
@@ -61,82 +60,80 @@ After copy:
 DMA completed
 ===== DMA MEMCPY DONE =====
 PID=1 src_region=1 dst_region=2 offset=0 size=4
+	CPU 3: Dispatched process  2
 Time slot  10
 copy_from_user failed: PID=1 invalid kernel region 4
 Time slot  11
-	CPU 1: Put process  1 to run queue
-	CPU 1: Dispatched process  1
+	CPU 0: Put process  1 to run queue
+	Loaded a process at input/proc/s3, PID: 3 PRIO: 39
+	CPU 0: Dispatched process  1
 ===== KERNEL MEMORY AFTER KMALLOC =====
 PID=1 - Region=4 - KernelAddress=0x100000000001000 - Size=200 byte
-	Loaded a process at input/proc/s3, PID: 3 PRIO: 39
-	CPU 0: Put process  2 to run queue
-	CPU 0: Dispatched process  2
-	CPU 3: Dispatched process  3
+	CPU 3: Put process  2 to run queue
+	CPU 3: Dispatched process  2
+	CPU 2: Dispatched process  3
 Time slot  12
 copy_to_user failed: PID=1 invalid kernel region 3
 Time slot  13
-	CPU 1: Put process  1 to run queue
-	CPU 1: Dispatched process  1
+	CPU 0: Put process  1 to run queue
+	CPU 0: Dispatched process  1
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=1 - Region=2
- PDG=0x7f66a8004b40 P4g=0x7f66a0000ba0 PUD=0x7f66a0001bb0 PMD=0x7f66a0002bc0
+ PDG=0x7f6c34004850 P4g=0x7f6c2c000bb0 PUD=0x7f6c2c001bc0 PMD=0x7f6c2c002bd0
   PT[000] page=0 -> frame=0 (present)
-	CPU 0: Put process  2 to run queue
-	CPU 0: Dispatched process  2
-	CPU 3: Put process  3 to run queue
-	CPU 3: Dispatched process  3
+	CPU 3: Put process  2 to run queue
+	CPU 3: Dispatched process  2
+	CPU 2: Put process  3 to run queue
+	CPU 2: Dispatched process  3
 	Loaded a process at input/proc/m2s, PID: 4 PRIO: 15
 Time slot  14
+	CPU 1: Dispatched process  4
+===== PHYSICAL MEMORY AFTER ALLOCATION =====
+PID=4 - Region=0 - Address=0 - Size=300 byte
+ PDG=0x7f6c3400ce40 P4g=0x7f6c30000bb0 PUD=0x7f6c30001bc0 PMD=0x7f6c30002bd0
+  PT[000] page=0 -> frame=1 (present)
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=1 - Region=1
- PDG=0x7f66a8004b40 P4g=0x7f66a0000ba0 PUD=0x7f66a0001bb0 PMD=0x7f66a0002bc0
+ PDG=0x7f6c34004850 P4g=0x7f6c2c000bb0 PUD=0x7f6c2c001bc0 PMD=0x7f6c2c002bd0
   PT[000] page=0 -> frame=0 (present)
-	CPU 2: Dispatched process  4
-===== PHYSICAL MEMORY AFTER ALLOCATION =====
-PID=4 - Region=0 - Address=0 - Size=300 byte
- PDG=0x7f66a800ce30 P4g=0x7f6698000ba0 PUD=0x7f6698001bb0 PMD=0x7f6698002bc0
-  PT[000] page=0 -> frame=1 (present)
 Time slot  15
-	CPU 0: Put process  2 to run queue
-	CPU 0: Dispatched process  2
-	CPU 1: Put process  1 to run queue
-	CPU 1: Dispatched process  1
+	CPU 0: Put process  1 to run queue
+	CPU 0: Dispatched process  1
 libfree failed: PID=1 region=3
-Time slot  16
-	CPU 3: Put process  3 to run queue
-	CPU 3: Dispatched process  3
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=4 - Region=1 - Address=300 - Size=100 byte
- PDG=0x7f66a800ce30 P4g=0x7f6698000ba0 PUD=0x7f6698001bb0 PMD=0x7f6698002bc0
+ PDG=0x7f6c3400ce40 P4g=0x7f6c30000bb0 PUD=0x7f6c30001bc0 PMD=0x7f6c30002bd0
   PT[000] page=0 -> frame=1 (present)
-	CPU 1: Processed  1 has finished
+	CPU 3: Put process  2 to run queue
+Time slot  16
+	CPU 2: Put process  3 to run queue
+	CPU 3: Dispatched process  2
+	CPU 1: Put process  4 to run queue
+	CPU 0: Processed  1 has finished
 	Loaded a process at input/proc/s2, PID: 5 PRIO: 120
-	CPU 2: Put process  4 to run queue
-	CPU 2: Dispatched process  5
-Time slot  17
-	CPU 1: Dispatched process  4
+	CPU 0: Dispatched process  4
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=4 - Region=0
- PDG=0x7f66a800ce30 P4g=0x7f6698000ba0 PUD=0x7f6698001bb0 PMD=0x7f6698002bc0
+ PDG=0x7f6c3400ce40 P4g=0x7f6c30000bb0 PUD=0x7f6c30001bc0 PMD=0x7f6c30002bd0
   PT[000] page=0 -> frame=1 (present)
-	Loaded a process at input/proc/s1, PID: 6 PRIO: 0
-	CPU 0: Put process  2 to run queue
-	CPU 0: Dispatched process  2
-	CPU 3: Put process  3 to run queue
-	CPU 3: Dispatched process  3
-Time slot  18
+	CPU 1: Dispatched process  3
+	CPU 2: Dispatched process  5
+Time slot  17
 ===== KERNEL MEMORY AFTER KMALLOC =====
 PID=4 - Region=2 - KernelAddress=0x100000000002000 - Size=200 byte
+	Loaded a process at input/proc/s1, PID: 6 PRIO: 0
+	CPU 3: Put process  2 to run queue
+	CPU 3: Dispatched process  6
+Time slot  18
 	CPU 2: Put process  5 to run queue
-	CPU 2: Dispatched process  5
-Time slot  19
-	CPU 1: Put process  4 to run queue
-	CPU 1: Dispatched process  6
-	CPU 0: Put process  2 to run queue
-	CPU 0: Dispatched process  4
+	CPU 2: Dispatched process  2
+	CPU 1: Put process  3 to run queue
+	CPU 0: Put process  4 to run queue
+	CPU 0: Dispatched process  5
+	CPU 1: Dispatched process  4
 dma_testbench modeo with dpi_dma_copy from memory bank
 dpi_dma_copy: src=4396, dst=12288, len=4
 Before copy:
@@ -164,67 +161,70 @@ After copy:
 DMA completed
 ===== DMA MEMCPY DONE =====
 PID=4 src_region=1 dst_region=2 offset=0 size=4
-Time slot  20
-	CPU 3: Put process  3 to run queue
-	CPU 3: Dispatched process  2
+Time slot  19
 copy_from_user failed: PID=4 invalid kernel region 4
-	CPU 2: Put process  5 to run queue
-	CPU 2: Dispatched process  3
-Time slot  21
-	CPU 1: Put process  6 to run queue
-	CPU 1: Dispatched process  5
-	CPU 0: Put process  4 to run queue
-	CPU 0: Dispatched process  6
-	CPU 3: Put process  2 to run queue
-	CPU 3: Dispatched process  4
+	CPU 3: Put process  6 to run queue
+	CPU 3: Dispatched process  3
+Time slot  20
+	CPU 0: Put process  5 to run queue
+	CPU 0: Dispatched process  5
+	CPU 1: Put process  4 to run queue
+	CPU 1: Dispatched process  6
+	CPU 2: Put process  2 to run queue
+	CPU 2: Dispatched process  4
 ===== KERNEL MEMORY AFTER KMALLOC =====
 PID=4 - Region=4 - KernelAddress=0x100000000003000 - Size=200 byte
-Time slot  22
+Time slot  21
 copy_to_user failed: PID=4 invalid kernel region 3
-	CPU 2: Put process  3 to run queue
-	CPU 2: Dispatched process  2
-Time slot  23
-	CPU 0: Put process  6 to run queue
-	CPU 0: Dispatched process  3
-	CPU 1: Put process  5 to run queue
-	CPU 1: Dispatched process  5
-	CPU 3: Put process  4 to run queue
-	CPU 3: Dispatched process  6
-Time slot  24
-	CPU 0: Processed  3 has finished
-	CPU 0: Dispatched process  4
+	CPU 2: Put process  4 to run queue
+	CPU 2: Dispatched process  4
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=4 - Region=2
- PDG=0x7f66a800ce30 P4g=0x7f6698000ba0 PUD=0x7f6698001bb0 PMD=0x7f6698002bc0
+ PDG=0x7f6c3400ce40 P4g=0x7f6c30000bb0 PUD=0x7f6c30001bc0 PMD=0x7f6c30002bd0
   PT[000] page=0 -> frame=1 (present)
-	CPU 2: Put process  2 to run queue
-	CPU 2: Dispatched process  2
-Time slot  25
-	CPU 1: Put process  5 to run queue
-	CPU 1: Dispatched process  5
+	CPU 1: Put process  6 to run queue
+	CPU 1: Dispatched process  2
+Time slot  22
+	CPU 3: Put process  3 to run queue
+	CPU 3: Dispatched process  3
+	CPU 0: Put process  5 to run queue
+	CPU 0: Dispatched process  5
+Time slot  23
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=4 - Region=1
- PDG=0x7f66a800ce30 P4g=0x7f6698000ba0 PUD=0x7f6698001bb0 PMD=0x7f6698002bc0
+ PDG=0x7f6c3400ce40 P4g=0x7f6c30000bb0 PUD=0x7f6c30001bc0 PMD=0x7f6c30002bd0
   PT[000] page=0 -> frame=1 (present)
+	CPU 3: Put process  3 to run queue
+	CPU 3: Dispatched process  6
+Time slot  24
+	CPU 2: Put process  4 to run queue
+	CPU 1: Put process  2 to run queue
+	CPU 2: Dispatched process  4
+	CPU 1: Dispatched process  2
+libfree failed: PID=4 region=3
+	CPU 0: Put process  5 to run queue
+	CPU 0: Dispatched process  3
+	CPU 2: Processed  4 has finished
+	CPU 2: Dispatched process  5
+Time slot  25
+	CPU 0: Processed  3 has finished
+	CPU 0 stopped
+Time slot  26
 	CPU 3: Put process  6 to run queue
 	CPU 3: Dispatched process  6
-Time slot  26
-	CPU 2: Processed  2 has finished
-	CPU 2 stopped
-	CPU 0: Put process  4 to run queue
-	CPU 0: Dispatched process  4
-libfree failed: PID=4 region=3
+	CPU 1: Put process  2 to run queue
+	CPU 1: Dispatched process  2
 Time slot  27
 	CPU 3: Processed  6 has finished
+	CPU 2: Put process  5 to run queue
+	CPU 2: Dispatched process  5
+	CPU 1: Processed  2 has finished
+	CPU 1 stopped
 	CPU 3 stopped
-	CPU 0: Processed  4 has finished
-	CPU 0 stopped
-	CPU 1: Put process  5 to run queue
-	CPU 1: Dispatched process  5
 Time slot  28
 Time slot  29
-	CPU 1: Processed  5 has finished
-	CPU 1 stopped
+	CPU 2: Processed  5 has finished
+	CPU 2 stopped
 MM64 stats: directory tables allocated=19 (storage=76 KB), pte walks=40

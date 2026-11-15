@@ -1,6 +1,6 @@
 Time slot   0
-Initialized dma software prototype engine (no Verilator RTL)
 ld_routine
+Initialized dma software prototype engine (no Verilator RTL)
 	Loaded a process at input/proc/p2s, PID: 1 PRIO: 0
 Time slot   1
 	CPU 1: Dispatched process  1
@@ -11,8 +11,8 @@ Time slot   3
 	Loaded a process at input/proc/p2s, PID: 3 PRIO: 1
 Time slot   4
 	Loaded a process at input/proc/p3s, PID: 4 PRIO: 0
-	CPU 1: Put process  1 to run queue
 Time slot   5
+	CPU 1: Put process  1 to run queue
 	CPU 1: Dispatched process  3
 Time slot   6
 	CPU 0: Put process  2 to run queue

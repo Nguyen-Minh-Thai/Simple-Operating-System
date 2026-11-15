@@ -53,7 +53,10 @@ def parse(path):
             if m:
                 cpu, pid = int(m.group(1)), int(m.group(2))
                 if cpu in running and running[cpu][0] == pid:
-                    end = slot + 1 if slot >= running[cpu][1] else running[cpu][1] + 1
+                    # finished is printed in the slot where the CPU is freed
+                    # (same as "Put"), so the bar ends at this slot; ending at
+                    # slot+1 overlapped the process dispatched in the same slot
+                    end = slot if slot > running[cpu][1] else running[cpu][1] + 1
                     bars.append((cpu, pid, running[cpu][1], end))
                     del running[cpu]
                 continue
@@ -70,7 +73,8 @@ def main():
     rows = {cpu: i for i, cpu in enumerate(cpus)}
     color = {pid: PALETTE[i % len(PALETTE)] for i, pid in enumerate(sorted(pids))}
 
-    fig_h = 1.1 + 0.85 * len(cpus)
+    LEGEND_IN = 0.45        # reserved strip under the axes for the legend
+    fig_h = 1.5 + 0.85 * len(cpus) + LEGEND_IN
     fig, ax = plt.subplots(figsize=(11, fig_h), dpi=150)
     fig.patch.set_facecolor(SURFACE)
     ax.set_facecolor(SURFACE)
@@ -79,7 +83,9 @@ def main():
         y = rows[cpu]
         ax.barh(y, e - s, left=s, height=0.52, color=color[pid],
                 edgecolor=SURFACE, linewidth=1.2, zorder=3)
-        if e - s >= 1:
+        # label only when it fits inside the bar (1-slot bars are too narrow
+        # on long runs; legend + log carry their identity)
+        if (e - s) / (maxt + 0.5) * 11 * 150 >= 34:
             ax.text((s + e) / 2, y, f"P{pid}", ha="center", va="center",
                     color="#ffffff", fontsize=9, fontweight="bold", zorder=4)
 
@@ -98,13 +104,12 @@ def main():
 
     handles = [Patch(facecolor=color[p], label=f"P{p} (PID {p})")
                for p in sorted(pids)]
-    ax.legend(handles=handles, loc="upper center",
-              bbox_to_anchor=(0.5, -0.32 if len(cpus) > 1 else -0.52),
-              ncol=min(len(pids), 8), frameon=False, fontsize=9)
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.0),
+               ncol=min(len(pids), 8), frameon=False, fontsize=9)
     ax.set_title(title, fontsize=12, color=TEXT, pad=12, loc="left",
                  fontweight="bold")
 
-    plt.tight_layout()
+    plt.tight_layout(rect=(0, LEGEND_IN / fig_h, 1, 1))
     plt.savefig(out, bbox_inches="tight", facecolor=SURFACE)
     print(f"saved {out}: {len(bars)} bars, cpus={cpus}, pids={sorted(pids)}")
 
