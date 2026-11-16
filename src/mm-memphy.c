@@ -27,7 +27,7 @@
  */
 int MEMPHY_mv_csr(struct memphy_struct *mp, addr_t offset)
 {
-   int numstep = 0;
+   addr_t numstep = 0;
 
    mp->cursor = 0;
    while (numstep < offset && numstep < mp->maxsz)
@@ -126,20 +126,21 @@ int MEMPHY_write(struct memphy_struct *mp, addr_t addr, BYTE data)
 int MEMPHY_format(struct memphy_struct *mp, int pagesz)
 {
    /* This setting come with fixed constant PAGESZ */
-   int numfp = mp->maxsz / pagesz;
+   addr_t numfp = mp->maxsz / pagesz;
    struct framephy_struct *newfst, *fst;
-   int iter = 0;
+   addr_t iter = 0;
 
    /* Always leave the lists in a sane state */
    mp->free_fp_list = NULL;
    mp->used_fp_list = NULL;
 
-   if (numfp <= 0)
+   if (numfp == 0)
       return -1;
 
    /* Init head of free framephy list */
    fst = malloc(sizeof(struct framephy_struct));
    fst->fpn = iter;
+   fst->fp_next = NULL;
    mp->free_fp_list = fst;
 
    /* We have list with first element, fill in the rest num-1 element member*/
@@ -257,7 +258,7 @@ int MEMPHY_dump(struct memphy_struct *mp)
    * TODO dump memphy contnt mp->storage
    *     for tracing the memory content
    */
-   int i;
+   addr_t i;
    int shown = 0;
 
    if (mp == NULL || mp->storage == NULL)
@@ -268,7 +269,7 @@ int MEMPHY_dump(struct memphy_struct *mp)
    {
       if (mp->storage[i] != 0)
       {
-         printf("BYTE %08x: %d\n", i, mp->storage[i]);
+         printf("BYTE %08lx: %d\n", (unsigned long)i, mp->storage[i]);
          shown++;
       }
    }

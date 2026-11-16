@@ -447,6 +447,10 @@ def chart_swap(run_dir, out, stamps):
 
 
 def main():
+    try:  # Windows consoles default to cp1252; notes contain ① ② and Vietnamese
+        sys.stdout.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
     run_dir, img_dir = sys.argv[1], sys.argv[2]
     rows, stamps = parse_console(run_dir)
     chart_tests(run_dir, os.path.join(img_dir, "16_chart_tests.png"), rows, stamps)

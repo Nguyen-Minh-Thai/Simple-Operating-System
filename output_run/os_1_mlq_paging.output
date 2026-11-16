@@ -2,219 +2,221 @@ Time slot   0
 ld_routine
 Time slot   1
 	Loaded a process at input/proc/p1s, PID: 1 PRIO: 15
-	CPU 1: Dispatched process  1
 Time slot   2
-Initialized dma software prototype engine (no Verilator RTL)
+	CPU 3: Dispatched process  1
 Time slot   3
-	CPU 1: Put process  1 to run queue
-	CPU 1: Dispatched process  1
 Time slot   4
-	Loaded a process at input/proc/m0s, PID: 2 PRIO: 120
-	CPU 2: Dispatched process  2
-	CPU 1: Put process  1 to run queue
-	CPU 1: Dispatched process  1
+	CPU 3: Put process  1 to run queue
+	CPU 3: Dispatched process  1
 Time slot   5
+	Loaded a process at input/proc/m0s, PID: 2 PRIO: 120
+Time slot   6
+	CPU 1: Dispatched process  2
+	CPU 3: Put process  1 to run queue
+	CPU 3: Dispatched process  1
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=2 - Region=0 - Address=0 - Size=300 byte
- PDG=0x7f5d480075e0 P4g=0x7f5d44000bb0 PUD=0x7f5d44001bc0 PMD=0x7f5d44002bd0
+ PDG=0x7f4c500075e0 P4g=0x7f4c4c000bb0 PUD=0x7f4c4c001bc0 PMD=0x7f4c4c002bd0
   PT[000] page=0 -> frame=0 (present)
+Time slot   7
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=2 - Region=1 - Address=300 - Size=100 byte
- PDG=0x7f5d480075e0 P4g=0x7f5d44000bb0 PUD=0x7f5d44001bc0 PMD=0x7f5d44002bd0
+ PDG=0x7f4c500075e0 P4g=0x7f4c4c000bb0 PUD=0x7f4c4c001bc0 PMD=0x7f4c4c002bd0
   PT[000] page=0 -> frame=0 (present)
-Time slot   6
-Time slot   7
-	CPU 2: Put process  2 to run queue
-	CPU 1: Put process  1 to run queue
-	CPU 2: Dispatched process  2
-	CPU 1: Dispatched process  1
+	Loaded a process at input/proc/p0s, PID: 3 PRIO: 130
+	CPU 3: Put process  1 to run queue
+	CPU 3: Dispatched process  1
+Time slot   8
+	CPU 0: Dispatched process  3
+	CPU 1: Put process  2 to run queue
+	CPU 1: Dispatched process  2
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=2 - Region=0
- PDG=0x7f5d480075e0 P4g=0x7f5d44000bb0 PUD=0x7f5d44001bc0 PMD=0x7f5d44002bd0
+ PDG=0x7f4c500075e0 P4g=0x7f4c4c000bb0 PUD=0x7f4c4c001bc0 PMD=0x7f4c4c002bd0
   PT[000] page=0 -> frame=0 (present)
-	Loaded a process at input/proc/p0s, PID: 3 PRIO: 130
-===== PHYSICAL MEMORY AFTER ALLOCATION =====
-PID=2 - Region=2 - Address=0 - Size=100 byte
- PDG=0x7f5d480075e0 P4g=0x7f5d44000bb0 PUD=0x7f5d44001bc0 PMD=0x7f5d44002bd0
-  PT[000] page=0 -> frame=0 (present)
-Time slot   8
-	CPU 0: Dispatched process  3
 Time slot   9
-	CPU 1: Put process  1 to run queue
-	CPU 1: Dispatched process  1
-	CPU 2: Put process  2 to run queue
-	CPU 2: Dispatched process  2
 	Loaded a process at input/proc/s0, PID: 4 PRIO: 38
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
+PID=2 - Region=2 - Address=0 - Size=100 byte
+ PDG=0x7f4c500075e0 P4g=0x7f4c4c000bb0 PUD=0x7f4c4c001bc0 PMD=0x7f4c4c002bd0
+  PT[000] page=0 -> frame=0 (present)
+===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=3 - Region=0 - Address=0 - Size=300 byte
- PDG=0x7f5d4800a1d0 P4g=0x7f5d3c000bb0 PUD=0x7f5d3c001bc0 PMD=0x7f5d3c002bd0
+ PDG=0x7f4c5000a1d0 P4g=0x7f4c40000bb0 PUD=0x7f4c40001bc0 PMD=0x7f4c40002bd0
   PT[000] page=0 -> frame=1 (present)
-===== PHYSICAL MEMORY AFTER WRITING =====
-write region=1 offset=20 value=102
- PDG=0x7f5d480075e0 P4g=0x7f5d44000bb0 PUD=0x7f5d44001bc0 PMD=0x7f5d44002bd0
-  PT[000] page=0 -> frame=0 (present)
-	CPU 3: Dispatched process  4
 Time slot  10
-===== PHYSICAL MEMORY AFTER WRITING =====
-write region=2 offset=1000 value=1
- PDG=0x7f5d480075e0 P4g=0x7f5d44000bb0 PUD=0x7f5d44001bc0 PMD=0x7f5d44002bd0
-  PT[000] page=0 -> frame=0 (present)
+	CPU 3: Put process  1 to run queue
+	CPU 3: Dispatched process  1
+	CPU 2: Dispatched process  4
 	CPU 0: Put process  3 to run queue
 	CPU 0: Dispatched process  3
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=3 - Region=4 - Address=300 - Size=300 byte
- PDG=0x7f5d4800a1d0 P4g=0x7f5d3c000bb0 PUD=0x7f5d3c001bc0 PMD=0x7f5d3c002bd0
+ PDG=0x7f4c5000a1d0 P4g=0x7f4c40000bb0 PUD=0x7f4c40001bc0 PMD=0x7f4c40002bd0
+	CPU 1: Put process  2 to run queue
   PT[000] page=0 -> frame=1 (present)
+	CPU 1: Dispatched process  2
+===== PHYSICAL MEMORY AFTER WRITING =====
+write region=1 offset=20 value=102
+ PDG=0x7f4c500075e0 P4g=0x7f4c4c000bb0 PUD=0x7f4c4c001bc0 PMD=0x7f4c4c002bd0
+  PT[000] page=0 -> frame=0 (present)
 Time slot  11
-	CPU 1: Processed  1 has finished
 	Loaded a process at input/proc/s3, PID: 5 PRIO: 39
-	CPU 2: Processed  2 has finished
 libfree:284
-	CPU 2: Dispatched process  5
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=3 - Region=0
- PDG=0x7f5d4800a1d0 P4g=0x7f5d3c000bb0 PUD=0x7f5d3c001bc0 PMD=0x7f5d3c002bd0
+ PDG=0x7f4c5000a1d0 P4g=0x7f4c40000bb0 PUD=0x7f4c40001bc0 PMD=0x7f4c40002bd0
   PT[000] page=0 -> frame=1 (present)
+===== PHYSICAL MEMORY AFTER WRITING =====
+write region=2 offset=1000 value=1
+ PDG=0x7f4c500075e0 P4g=0x7f4c4c000bb0 PUD=0x7f4c4c001bc0 PMD=0x7f4c4c002bd0
+  PT[000] page=0 -> frame=0 (present)
+	CPU 3: Processed  1 has finished
 Time slot  12
-	CPU 3: Put process  4 to run queue
-	CPU 3: Dispatched process  4
+	CPU 1: Processed  2 has finished
+	CPU 1: Dispatched process  5
+	CPU 2: Put process  4 to run queue
+	CPU 2: Dispatched process  4
 	CPU 0: Put process  3 to run queue
 	CPU 0: Dispatched process  3
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=3 - Region=1 - Address=0 - Size=100 byte
- PDG=0x7f5d4800a1d0 P4g=0x7f5d3c000bb0 PUD=0x7f5d3c001bc0 PMD=0x7f5d3c002bd0
+ PDG=0x7f4c5000a1d0 P4g=0x7f4c40000bb0 PUD=0x7f4c40001bc0 PMD=0x7f4c40002bd0
   PT[000] page=0 -> frame=1 (present)
-	CPU 2: Put process  5 to run queue
-	CPU 2: Dispatched process  5
 Time slot  13
 ===== PHYSICAL MEMORY AFTER WRITING =====
 write region=1 offset=20 value=100
- PDG=0x7f5d4800a1d0 P4g=0x7f5d3c000bb0 PUD=0x7f5d3c001bc0 PMD=0x7f5d3c002bd0
+ PDG=0x7f4c5000a1d0 P4g=0x7f4c40000bb0 PUD=0x7f4c40001bc0 PMD=0x7f4c40002bd0
   PT[000] page=0 -> frame=1 (present)
 Time slot  14
-	CPU 3: Put process  4 to run queue
+	CPU 2: Put process  4 to run queue
+	CPU 2: Dispatched process  4
+	CPU 1: Put process  5 to run queue
+	CPU 1: Dispatched process  5
 	CPU 0: Put process  3 to run queue
-	CPU 3: Dispatched process  4
 	CPU 0: Dispatched process  3
 libread:489
 ===== PHYSICAL MEMORY AFTER READING =====
 read region=1 offset=20 value=100
- PDG=0x7f5d4800a1d0 P4g=0x7f5d3c000bb0 PUD=0x7f5d3c001bc0 PMD=0x7f5d3c002bd0
+ PDG=0x7f4c5000a1d0 P4g=0x7f4c40000bb0 PUD=0x7f4c40001bc0 PMD=0x7f4c40002bd0
   PT[000] page=0 -> frame=1 (present)
 	Loaded a process at input/proc/m1s, PID: 6 PRIO: 15
-	CPU 2: Put process  5 to run queue
-	CPU 2: Dispatched process  6
 Time slot  15
-	CPU 1: Dispatched process  5
+	CPU 3: Dispatched process  6
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=6 - Region=0 - Address=0 - Size=300 byte
- PDG=0x7f5d48012400 P4g=0x7f5d44004c70 PUD=0x7f5d44005c80 PMD=0x7f5d44006c90
+ PDG=0x7f4c50012400 P4g=0x7f4c38000bb0 PUD=0x7f4c38001bc0 PMD=0x7f4c38002bd0
   PT[000] page=0 -> frame=2 (present)
 Invalid memory operation: PID=3 write on unallocated region 2
-	CPU 3: Put process  4 to run queue
-	CPU 3: Dispatched process  4
-Time slot  16
-	CPU 0: Put process  3 to run queue
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=6 - Region=1 - Address=300 - Size=100 byte
-	Loaded a process at input/proc/s2, PID: 7 PRIO: 120
- PDG=0x7f5d48012400 P4g=0x7f5d44004c70 PUD=0x7f5d44005c80 PMD=0x7f5d44006c90
+Time slot  16
+ PDG=0x7f4c50012400 P4g=0x7f4c38000bb0 PUD=0x7f4c38001bc0 PMD=0x7f4c38002bd0
   PT[000] page=0 -> frame=2 (present)
+	CPU 2: Put process  4 to run queue
+	CPU 1: Put process  5 to run queue
+	CPU 2: Dispatched process  4
+	CPU 1: Dispatched process  5
+	CPU 0: Put process  3 to run queue
 	CPU 0: Dispatched process  3
 libread:489
 Invalid memory operation: PID=3 read on unallocated region 2
-	CPU 2: Put process  6 to run queue
-	CPU 2: Dispatched process  6
+	Loaded a process at input/proc/s2, PID: 7 PRIO: 120
+	CPU 3: Put process  6 to run queue
+	CPU 3: Dispatched process  6
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=6 - Region=0
- PDG=0x7f5d48012400 P4g=0x7f5d44004c70 PUD=0x7f5d44005c80 PMD=0x7f5d44006c90
+ PDG=0x7f4c50012400 P4g=0x7f4c38000bb0 PUD=0x7f4c38001bc0 PMD=0x7f4c38002bd0
   PT[000] page=0 -> frame=2 (present)
 Time slot  17
-	CPU 1: Put process  5 to run queue
-	CPU 1: Dispatched process  5
 Invalid memory operation: PID=3 write on unallocated region 3
 	Loaded a process at input/proc/s1, PID: 8 PRIO: 0
-Time slot  18
-	CPU 3: Put process  4 to run queue
-	CPU 3: Dispatched process  7
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=6 - Region=2 - Address=0 - Size=100 byte
- PDG=0x7f5d48012400 P4g=0x7f5d44004c70 PUD=0x7f5d44005c80 PMD=0x7f5d44006c90
+ PDG=0x7f4c50012400 P4g=0x7f4c38000bb0 PUD=0x7f4c38001bc0 PMD=0x7f4c38002bd0
   PT[000] page=0 -> frame=2 (present)
-	CPU 0: Put process  3 to run queue
-	CPU 0: Dispatched process  3
-libread:489
-Invalid memory operation: PID=3 read on unallocated region 3
-Time slot  19
-	CPU 2: Put process  6 to run queue
-	CPU 2: Dispatched process  8
+Time slot  18
 	CPU 1: Put process  5 to run queue
-	CPU 1: Dispatched process  6
+	CPU 1: Dispatched process  8
+	CPU 2: Put process  4 to run queue
+	CPU 0: Put process  3 to run queue
+	CPU 2: Dispatched process  4
+	CPU 0: Dispatched process  5
+	CPU 3: Put process  6 to run queue
+	CPU 3: Dispatched process  6
 libfree:284
+Time slot  19
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=6 - Region=2
- PDG=0x7f5d48012400 P4g=0x7f5d44004c70 PUD=0x7f5d44005c80 PMD=0x7f5d44006c90
+ PDG=0x7f4c50012400 P4g=0x7f4c38000bb0 PUD=0x7f4c38001bc0 PMD=0x7f4c38002bd0
   PT[000] page=0 -> frame=2 (present)
-	CPU 3: Put process  7 to run queue
-	CPU 3: Dispatched process  4
 Time slot  20
-	CPU 0: Put process  3 to run queue
-	CPU 0: Dispatched process  5
+	CPU 1: Put process  8 to run queue
+	CPU 2: Put process  4 to run queue
+	CPU 1: Dispatched process  8
+	CPU 2: Dispatched process  4
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=6 - Region=1
- PDG=0x7f5d48012400 P4g=0x7f5d44004c70 PUD=0x7f5d44005c80 PMD=0x7f5d44006c90
+ PDG=0x7f4c50012400 P4g=0x7f4c38000bb0 PUD=0x7f4c38001bc0 PMD=0x7f4c38002bd0
+	CPU 0: Put process  5 to run queue
+	CPU 0: Dispatched process  5
   PT[000] page=0 -> frame=2 (present)
-	CPU 2: Put process  8 to run queue
-	CPU 2: Dispatched process  7
+Initialized dma_rtl simulation
+	CPU 3: Processed  6 has finished
+	CPU 3: Dispatched process  7
 Time slot  21
-	CPU 1: Processed  6 has finished
-	CPU 1: Dispatched process  3
+	CPU 2: Put process  4 to run queue
+	CPU 2: Dispatched process  4
+Time slot  22
+	CPU 1: Put process  8 to run queue
+	CPU 1: Dispatched process  8
+	CPU 0: Put process  5 to run queue
+	CPU 0: Dispatched process  5
+	CPU 3: Put process  7 to run queue
+	CPU 3: Dispatched process  7
+Time slot  23
+	CPU 0: Processed  5 has finished
+	CPU 0: Dispatched process  3
+libread:489
+Invalid memory operation: PID=3 read on unallocated region 3
+	CPU 2: Put process  4 to run queue
+	CPU 2: Dispatched process  4
+Time slot  24
+	CPU 1: Put process  8 to run queue
+	CPU 1: Dispatched process  8
+	CPU 2: Processed  4 has finished
+	CPU 2 stopped
+Time slot  25
+	CPU 1: Processed  8 has finished
+	CPU 0: Put process  3 to run queue
+	CPU 3: Put process  7 to run queue
+	CPU 1 stopped
+	CPU 0: Dispatched process  3
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=3 - Region=4
- PDG=0x7f5d4800a1d0 P4g=0x7f5d3c000bb0 PUD=0x7f5d3c001bc0 PMD=0x7f5d3c002bd0
+ PDG=0x7f4c5000a1d0 P4g=0x7f4c40000bb0 PUD=0x7f4c40001bc0 PMD=0x7f4c40002bd0
+	CPU 3: Dispatched process  7
   PT[000] page=0 -> frame=1 (present)
-	CPU 3: Put process  4 to run queue
-	CPU 3: Dispatched process  8
-Time slot  22
-	CPU 0: Put process  5 to run queue
-	CPU 0: Dispatched process  4
-	CPU 2: Put process  7 to run queue
-	CPU 2: Dispatched process  5
-Time slot  23
-	CPU 1: Processed  3 has finished
-	CPU 1: Dispatched process  7
-	CPU 3: Put process  8 to run queue
-	CPU 3: Dispatched process  8
-Time slot  24
-	CPU 0: Put process  4 to run queue
-	CPU 0: Dispatched process  4
-	CPU 2: Processed  5 has finished
-	CPU 2 stopped
-Time slot  25
-	CPU 1: Put process  7 to run queue
-	CPU 1: Dispatched process  7
 Time slot  26
-	CPU 3: Put process  8 to run queue
-	CPU 3: Dispatched process  8
-	CPU 0: Put process  4 to run queue
-	CPU 0: Dispatched process  4
 Time slot  27
-	CPU 3: Processed  8 has finished
-	CPU 1: Put process  7 to run queue
-	CPU 1: Dispatched process  7
-	CPU 0: Processed  4 has finished
+	CPU 0: Processed  3 has finished
 	CPU 0 stopped
-	CPU 3 stopped
+	CPU 3: Put process  7 to run queue
+	CPU 3: Dispatched process  7
 Time slot  28
 Time slot  29
-	CPU 1: Put process  7 to run queue
-	CPU 1: Dispatched process  7
+	CPU 3: Put process  7 to run queue
+	CPU 3: Dispatched process  7
 Time slot  30
 Time slot  31
-	CPU 1: Processed  7 has finished
-	CPU 1 stopped
+	CPU 3: Put process  7 to run queue
+	CPU 3: Dispatched process  7
+Time slot  32
+Time slot  33
+	CPU 3: Processed  7 has finished
+	CPU 3 stopped
 MM64 stats: directory tables allocated=21 (storage=84 KB), pte walks=49

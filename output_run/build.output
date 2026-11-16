@@ -1,30 +1,47 @@
 $ make clean && make all
 mkdir -p obj
-obj/cpu.o obj/mem.o obj/loader.o obj/queue.o obj/os.o obj/sched.o obj/timer.o obj/mm-vm.o obj/mm64.o obj/mm.o obj/mm-memphy.o obj/libstd.o obj/libmem.o obj/syscall.o obj/sys_mem.o obj/sys_listsyscall.o obj/sys_xxxhandler.o obj/dpi_rtl_sw.o obj/sysbus.o obj/dma_c_testbench.o
+obj/cpu.o obj/mem.o obj/loader.o obj/queue.o obj/os.o obj/sched.o obj/timer.o obj/mm-vm.o obj/mm64.o obj/mm.o obj/mm-memphy.o obj/libstd.o obj/libmem.o obj/syscall.o obj/sys_mem.o obj/sys_listsyscall.o obj/sys_xxxhandler.o obj/Vdma_top.o obj/Vdma_top___024root__DepSet_had36784a__0.o obj/Vdma_top___024root__DepSet_hbdce0907__0.o obj/Vdma_top__Dpi.o obj/Vdma_top__Trace__0.o obj/verilated.o obj/verilated_dpi.o obj/verilated_vcd_c.o obj/verilated_threads.o obj/Vdma_top___024root__Slow.o obj/Vdma_top___024root__DepSet_had36784a__0__Slow.o obj/Vdma_top___024root__DepSet_hbdce0907__0__Slow.o obj/Vdma_top___024unit__Slow.o obj/Vdma_top___024unit__DepSet_hf68f5ab9__0__Slow.o obj/Vdma_top__Syms.o obj/Vdma_top__Trace__0__Slow.o obj/Vdma_top__TraceDecls__0__Slow.o obj/dpi_rtl.o obj/sysbus.o obj/dma_c_testbench.o
 chmod +x src/syscalltbl.sh
 src/syscalltbl.sh src/syscall.tbl src/syscalltbl.lst
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/cpu.c -o obj/cpu.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/mem.c -o obj/mem.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/loader.c -o obj/loader.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/queue.c -o obj/queue.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/os.c -o obj/os.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/sched.c -o obj/sched.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/timer.c -o obj/timer.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/mm-vm.c -o obj/mm-vm.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/mm64.c -o obj/mm64.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/mm.c -o obj/mm.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/mm-memphy.c -o obj/mm-memphy.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/libstd.c -o obj/libstd.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/libmem.c -o obj/libmem.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/syscall.c -o obj/syscall.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/sys_mem.c -o obj/sys_mem.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/sys_listsyscall.c -o obj/sys_listsyscall.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/sys_xxxhandler.c -o obj/sys_xxxhandler.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/dpi_rtl_sw.c -o obj/dpi_rtl_sw.o
-gcc -Iinclude -std=gnu11 -c -g -DDMA_SW_FALLBACK src/sysbus.c -o obj/sysbus.o
-g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDMA_SW_FALLBACK -DDEBUG_ENABLED=1 -DDMA_MAIN=0 src/dma_c_testbench.cpp -o obj/dma_c_testbench.o
-g++ -Wall -g obj/cpu.o obj/mem.o obj/loader.o obj/queue.o obj/os.o obj/sched.o obj/timer.o obj/mm-vm.o obj/mm64.o obj/mm.o obj/mm-memphy.o obj/libstd.o obj/libmem.o obj/syscall.o obj/sys_mem.o obj/sys_listsyscall.o obj/sys_xxxhandler.o obj/dpi_rtl_sw.o obj/sysbus.o obj/dma_c_testbench.o -o os -lpthread -lpthread
+gcc -Iinclude -std=gnu11 -c -g src/cpu.c -o obj/cpu.o
+gcc -Iinclude -std=gnu11 -c -g src/mem.c -o obj/mem.o
+gcc -Iinclude -std=gnu11 -c -g src/loader.c -o obj/loader.o
+gcc -Iinclude -std=gnu11 -c -g src/queue.c -o obj/queue.o
+gcc -Iinclude -std=gnu11 -c -g src/os.c -o obj/os.o
+gcc -Iinclude -std=gnu11 -c -g src/sched.c -o obj/sched.o
+gcc -Iinclude -std=gnu11 -c -g src/timer.c -o obj/timer.o
+gcc -Iinclude -std=gnu11 -c -g src/mm-vm.c -o obj/mm-vm.o
+gcc -Iinclude -std=gnu11 -c -g src/mm64.c -o obj/mm64.o
+gcc -Iinclude -std=gnu11 -c -g src/mm.c -o obj/mm.o
+gcc -Iinclude -std=gnu11 -c -g src/mm-memphy.c -o obj/mm-memphy.o
+gcc -Iinclude -std=gnu11 -c -g src/libstd.c -o obj/libstd.o
+gcc -Iinclude -std=gnu11 -c -g src/libmem.c -o obj/libmem.o
+gcc -Iinclude -std=gnu11 -c -g src/syscall.c -o obj/syscall.o
+gcc -Iinclude -std=gnu11 -c -g src/sys_mem.c -o obj/sys_mem.o
+gcc -Iinclude -std=gnu11 -c -g src/sys_listsyscall.c -o obj/sys_listsyscall.o
+gcc -Iinclude -std=gnu11 -c -g src/sys_xxxhandler.c -o obj/sys_xxxhandler.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/Vdma_top.cpp -o obj/Vdma_top.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/Vdma_top___024root__DepSet_had36784a__0.cpp -o obj/Vdma_top___024root__DepSet_had36784a__0.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/Vdma_top___024root__DepSet_hbdce0907__0.cpp -o obj/Vdma_top___024root__DepSet_hbdce0907__0.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/Vdma_top__Dpi.cpp -o obj/Vdma_top__Dpi.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/Vdma_top__Trace__0.cpp -o obj/Vdma_top__Trace__0.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 -I/usr/share/verilator/include /usr/share/verilator/include/verilated.cpp -o obj/verilated.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 -I/usr/share/verilator/include /usr/share/verilator/include/verilated_dpi.cpp -o obj/verilated_dpi.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 -I/usr/share/verilator/include /usr/share/verilator/include/verilated_vcd_c.cpp -o obj/verilated_vcd_c.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 -I/usr/share/verilator/include /usr/share/verilator/include/verilated_threads.cpp -o obj/verilated_threads.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/Vdma_top___024root__Slow.cpp -o obj/Vdma_top___024root__Slow.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/Vdma_top___024root__DepSet_had36784a__0__Slow.cpp -o obj/Vdma_top___024root__DepSet_had36784a__0__Slow.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/Vdma_top___024root__DepSet_hbdce0907__0__Slow.cpp -o obj/Vdma_top___024root__DepSet_hbdce0907__0__Slow.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/Vdma_top___024unit__Slow.cpp -o obj/Vdma_top___024unit__Slow.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/Vdma_top___024unit__DepSet_hf68f5ab9__0__Slow.cpp -o obj/Vdma_top___024unit__DepSet_hf68f5ab9__0__Slow.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/Vdma_top__Syms.cpp -o obj/Vdma_top__Syms.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/Vdma_top__Trace__0__Slow.cpp -o obj/Vdma_top__Trace__0__Slow.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/Vdma_top__TraceDecls__0__Slow.cpp -o obj/Vdma_top__TraceDecls__0__Slow.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 src/dpi_rtl.cpp -o obj/dpi_rtl.o
+gcc -Iinclude -std=gnu11 -c -g src/sysbus.c -o obj/sysbus.o
+g++ -iquote include -I/usr/share/verilator/include -I/usr/share/verilator/include/vltstd -std=gnu++14 -c -g -DDEBUG_ENABLED=1 -DDMA_MAIN=0 src/dma_c_testbench.cpp -o obj/dma_c_testbench.o
+g++ -Wall -g obj/cpu.o obj/mem.o obj/loader.o obj/queue.o obj/os.o obj/sched.o obj/timer.o obj/mm-vm.o obj/mm64.o obj/mm.o obj/mm-memphy.o obj/libstd.o obj/libmem.o obj/syscall.o obj/sys_mem.o obj/sys_listsyscall.o obj/sys_xxxhandler.o obj/Vdma_top.o obj/Vdma_top___024root__DepSet_had36784a__0.o obj/Vdma_top___024root__DepSet_hbdce0907__0.o obj/Vdma_top__Dpi.o obj/Vdma_top__Trace__0.o obj/verilated.o obj/verilated_dpi.o obj/verilated_vcd_c.o obj/verilated_threads.o obj/Vdma_top___024root__Slow.o obj/Vdma_top___024root__DepSet_had36784a__0__Slow.o obj/Vdma_top___024root__DepSet_hbdce0907__0__Slow.o obj/Vdma_top___024unit__Slow.o obj/Vdma_top___024unit__DepSet_hf68f5ab9__0__Slow.o obj/Vdma_top__Syms.o obj/Vdma_top__Trace__0__Slow.o obj/Vdma_top__TraceDecls__0__Slow.o obj/dpi_rtl.o obj/sysbus.o obj/dma_c_testbench.o -o os -lpthread -lpthread
 
 $ ls -la os
--rwxrwxrwx 1 minhthai minhthai 149392 Nov 15 12:22 os
-# build finished: 2026-11-15 12:22:45 +0000
+-rwxrwxrwx 1 minhthai minhthai 4620544 Nov 16 01:46 os
+# build finished: 2026-11-16 01:46:55 +0000

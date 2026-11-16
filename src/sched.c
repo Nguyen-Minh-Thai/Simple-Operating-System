@@ -89,39 +89,51 @@ struct pcb_t * find_running_proc(uint32_t pid) {
  *  We implement stateful here using transition technique
  *  State representation   prio = 0 .. MAX_PRIO, curr_slot = 0..(MAX_PRIO - prio)
  */
-static int curr_prio = 0;   /* the ready queue being served          */
-static int curr_slot = 0;   /* slots already used at this priority   */
-
 struct pcb_t * get_mlq_proc(void) {
 	struct pcb_t * proc = NULL;
+	int prio;
 
 	pthread_mutex_lock(&queue_lock);
 	/*TODO: get a process from PRIORITY [ready_queue].
 	 *      It worth to protect by a mechanism.
 	 * */
 
-	/* MLQ policy: each priority level i owns a fixed budget of
-	 * slot[i] = MAX_PRIO - i CPU slots. We keep serving queue
-	 * curr_prio until either it gets empty or its budget is used
-	 * up, then move to the next non-empty queue (completing the
-	 * round over all MAX_PRIO queues when needed).
+	/* Always scan from highest priority (0) to lowest (MAX_PRIO - 1).
+	 * A queue at priority i can dispatch if it is non-empty and still
+	 * has remaining slot budget (slot[i] > 0).
 	 */
-	int traversed = 0;
-
-	while (traversed < MAX_PRIO) {
-		if (!empty(&mlq_ready_queue[curr_prio]) &&
-		    curr_slot < slot[curr_prio]) {
-			/* This queue still owns the CPU slot */
-			proc = dequeue(&mlq_ready_queue[curr_prio]);
-			curr_slot++;
+	for (prio = 0; prio < MAX_PRIO; prio++) {
+		if (!empty(&mlq_ready_queue[prio]) && slot[prio] > 0) {
+			proc = dequeue(&mlq_ready_queue[prio]);
+			slot[prio]--;
 			break;
 		}
+	}
 
-		/* Budget used up or queue empty: move to next level and
-		 * leave the remaining work for a future round. */
-		curr_prio = (curr_prio + 1) % MAX_PRIO;
-		curr_slot = 0;
-		traversed++;
+	/* If no process was picked, check whether any queue still holds
+	 * ready processes whose slot budget reached 0. If so, replenish
+	 * all slot budgets for a new MLQ epoch and scan again from prio 0.
+	 */
+	if (proc == NULL) {
+		int has_ready = 0;
+		for (prio = 0; prio < MAX_PRIO; prio++) {
+			if (!empty(&mlq_ready_queue[prio])) {
+				has_ready = 1;
+				break;
+			}
+		}
+		if (has_ready) {
+			for (prio = 0; prio < MAX_PRIO; prio++) {
+				slot[prio] = MAX_PRIO - prio;
+			}
+			for (prio = 0; prio < MAX_PRIO; prio++) {
+				if (!empty(&mlq_ready_queue[prio]) && slot[prio] > 0) {
+					proc = dequeue(&mlq_ready_queue[prio]);
+					slot[prio]--;
+					break;
+				}
+			}
+		}
 	}
 
 	if (proc != NULL)

@@ -1,6 +1,5 @@
 Time slot   0
 ld_routine
-Initialized dma software prototype engine (no Verilator RTL)
 	Loaded a process at input/proc/p0s, PID: 1 PRIO: 0
 Time slot   1
 	CPU 1: Dispatched process  1
@@ -9,31 +8,31 @@ Time slot   2
 	CPU 0: Dispatched process  2
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=1 - Region=0 - Address=0 - Size=300 byte
- PDG=0x7f04800048d0 P4g=0x7f047c000bb0 PUD=0x7f047c001bc0 PMD=0x7f047c002bd0
+ PDG=0x7fed7c0048d0 P4g=0x7fed78000bb0 PUD=0x7fed78001bc0 PMD=0x7fed78002bd0
   PT[000] page=0 -> frame=0 (present)
 Time slot   3
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=1 - Region=4 - Address=300 - Size=300 byte
- PDG=0x7f04800048d0 P4g=0x7f047c000bb0 PUD=0x7f047c001bc0 PMD=0x7f047c002bd0
+ PDG=0x7fed7c0048d0 P4g=0x7fed78000bb0 PUD=0x7fed78001bc0 PMD=0x7fed78002bd0
   PT[000] page=0 -> frame=0 (present)
 	Loaded a process at input/proc/p1s, PID: 3 PRIO: 0
 Time slot   4
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=1 - Region=0
- PDG=0x7f04800048d0 P4g=0x7f047c000bb0 PUD=0x7f047c001bc0 PMD=0x7f047c002bd0
+ PDG=0x7fed7c0048d0 P4g=0x7fed78000bb0 PUD=0x7fed78001bc0 PMD=0x7fed78002bd0
   PT[000] page=0 -> frame=0 (present)
 Time slot   5
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=1 - Region=1 - Address=0 - Size=100 byte
- PDG=0x7f04800048d0 P4g=0x7f047c000bb0 PUD=0x7f047c001bc0 PMD=0x7f047c002bd0
+ PDG=0x7fed7c0048d0 P4g=0x7fed78000bb0 PUD=0x7fed78001bc0 PMD=0x7fed78002bd0
   PT[000] page=0 -> frame=0 (present)
 Time slot   6
+	Loaded a process at input/proc/p0s, PID: 4 PRIO: 0
 ===== PHYSICAL MEMORY AFTER WRITING =====
 write region=1 offset=20 value=100
- PDG=0x7f04800048d0 P4g=0x7f047c000bb0 PUD=0x7f047c001bc0 PMD=0x7f047c002bd0
+ PDG=0x7fed7c0048d0 P4g=0x7fed78000bb0 PUD=0x7fed78001bc0 PMD=0x7fed78002bd0
   PT[000] page=0 -> frame=0 (present)
-	Loaded a process at input/proc/p0s, PID: 4 PRIO: 0
 Time slot   7
 	CPU 1: Put process  1 to run queue
 	CPU 1: Dispatched process  3
@@ -44,36 +43,36 @@ Time slot   8
 Time slot   9
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=4 - Region=0 - Address=0 - Size=300 byte
- PDG=0x7f048000ce60 P4g=0x7f0474000bb0 PUD=0x7f0474001bc0 PMD=0x7f0474002bd0
+ PDG=0x7fed7c00ce60 P4g=0x7fed6c000bb0 PUD=0x7fed6c001bc0 PMD=0x7fed6c002bd0
   PT[000] page=0 -> frame=1 (present)
 Time slot  10
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=4 - Region=4 - Address=300 - Size=300 byte
- PDG=0x7f048000ce60 P4g=0x7f0474000bb0 PUD=0x7f0474001bc0 PMD=0x7f0474002bd0
+ PDG=0x7fed7c00ce60 P4g=0x7fed6c000bb0 PUD=0x7fed6c001bc0 PMD=0x7fed6c002bd0
   PT[000] page=0 -> frame=1 (present)
 Time slot  11
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=4 - Region=0
- PDG=0x7f048000ce60 P4g=0x7f0474000bb0 PUD=0x7f0474001bc0 PMD=0x7f0474002bd0
+ PDG=0x7fed7c00ce60 P4g=0x7fed6c000bb0 PUD=0x7fed6c001bc0 PMD=0x7fed6c002bd0
   PT[000] page=0 -> frame=1 (present)
 Time slot  12
 ===== PHYSICAL MEMORY AFTER ALLOCATION =====
 PID=4 - Region=1 - Address=0 - Size=100 byte
- PDG=0x7f048000ce60 P4g=0x7f0474000bb0 PUD=0x7f0474001bc0 PMD=0x7f0474002bd0
+ PDG=0x7fed7c00ce60 P4g=0x7fed6c000bb0 PUD=0x7fed6c001bc0 PMD=0x7fed6c002bd0
   PT[000] page=0 -> frame=1 (present)
 Time slot  13
 	CPU 1: Put process  3 to run queue
 	CPU 1: Dispatched process  1
 libread:489
-===== PHYSICAL MEMORY AFTER READING =====
-read region=1 offset=20 value=100
- PDG=0x7f04800048d0 P4g=0x7f047c000bb0 PUD=0x7f047c001bc0 PMD=0x7f047c002bd0
-  PT[000] page=0 -> frame=0 (present)
 ===== PHYSICAL MEMORY AFTER WRITING =====
 write region=1 offset=20 value=100
- PDG=0x7f048000ce60 P4g=0x7f0474000bb0 PUD=0x7f0474001bc0 PMD=0x7f0474002bd0
+===== PHYSICAL MEMORY AFTER READING =====
+read region=1 offset=20 value=100
+ PDG=0x7fed7c00ce60 P4g=0x7fed6c000bb0 PUD=0x7fed6c001bc0 PMD=0x7fed6c002bd0
+ PDG=0x7fed7c0048d0 P4g=0x7fed78000bb0 PUD=0x7fed78001bc0 PMD=0x7fed78002bd0
   PT[000] page=0 -> frame=1 (present)
+  PT[000] page=0 -> frame=0 (present)
 Time slot  14
 Invalid memory operation: PID=1 write on unallocated region 2
 	CPU 0: Put process  4 to run queue
@@ -96,7 +95,7 @@ Time slot  20
 libread:489
 ===== PHYSICAL MEMORY AFTER READING =====
 read region=1 offset=20 value=100
- PDG=0x7f048000ce60 P4g=0x7f0474000bb0 PUD=0x7f0474001bc0 PMD=0x7f0474002bd0
+ PDG=0x7fed7c00ce60 P4g=0x7fed6c000bb0 PUD=0x7fed6c001bc0 PMD=0x7fed6c002bd0
   PT[000] page=0 -> frame=1 (present)
 Time slot  21
 Invalid memory operation: PID=4 write on unallocated region 2
@@ -105,13 +104,13 @@ libread:489
 Invalid memory operation: PID=4 read on unallocated region 2
 Time slot  23
 	CPU 1: Processed  3 has finished
+Invalid memory operation: PID=4 write on unallocated region 3
 	CPU 1: Dispatched process  1
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=1 - Region=4
- PDG=0x7f04800048d0 P4g=0x7f047c000bb0 PUD=0x7f047c001bc0 PMD=0x7f047c002bd0
+ PDG=0x7fed7c0048d0 P4g=0x7fed78000bb0 PUD=0x7fed78001bc0 PMD=0x7fed78002bd0
   PT[000] page=0 -> frame=0 (present)
-Invalid memory operation: PID=4 write on unallocated region 3
 Time slot  24
 libread:489
 Invalid memory operation: PID=4 read on unallocated region 3
@@ -124,7 +123,7 @@ Time slot  26
 libfree:284
 ===== PHYSICAL MEMORY AFTER DEALLOCATION =====
 PID=4 - Region=4
- PDG=0x7f048000ce60 P4g=0x7f0474000bb0 PUD=0x7f0474001bc0 PMD=0x7f0474002bd0
+ PDG=0x7fed7c00ce60 P4g=0x7fed6c000bb0 PUD=0x7fed6c001bc0 PMD=0x7fed6c002bd0
   PT[000] page=0 -> frame=1 (present)
 Time slot  27
 Time slot  28
