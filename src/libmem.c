@@ -1206,8 +1206,14 @@ void dma_worker_loop(void)
     /* Drive the DMA engine */
     int rc = do_dma(req->caller, req->src, req->dst, req->len);
 
-    /* Completion interrupt (IRQ line of the DMA module) */
+    /* Completion interrupt (IRQ line of the DMA module).
+     * The real RTL chip raises dma_done_callback() itself through its
+     * DPI import when ch_done goes high, so the OS must not raise it a
+     * second time. Only the software prototype (DMA_SW_FALLBACK) has no
+     * IRQ line of its own; there the co-processor raises it here. */
+#ifdef DMA_SW_FALLBACK
     dma_done_callback();
+#endif
 
     pthread_mutex_lock(&dma_mb_lock);
     req->result = rc;

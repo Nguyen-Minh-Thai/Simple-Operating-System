@@ -72,7 +72,8 @@ def main():
     last = int(sys.argv[5]) if len(sys.argv) > 5 else 10**9
 
     with open(log, encoding="utf-8", errors="replace") as f:
-        all_lines = f.read().splitlines()
+        # tabs -> spaces: PIL draws a raw '\t' as a missing-glyph box
+        all_lines = [line.expandtabs(4) for line in f.read().splitlines()]
     total = len(all_lines)
     lines = all_lines[first - 1:last]
     truncated_head = first > 1

@@ -2,8 +2,9 @@
 """Regenerate every log-derived image in report/images/ from ONE run in output_run/.
 
 Sources are only the files in output_run/ (produced by run_tests.sh, plus
-build.output captured right after it). Line windows are the same as the
-original report images; they were re-checked against the logs of this run.
+build.output captured right after it). Line windows are computed from content
+anchors in each log (see WINDOWS), so a new run keeps showing the same part of
+the log without hand-editing line numbers.
 
 Not regenerated here: 15_addr_translation.png (a schematic drawn by
 make_addr_diagram.py, contains no run data).
@@ -19,9 +20,35 @@ RUN = "output_run"
 IMG = os.path.join("report", "images")
 PY = sys.executable
 
-# (image, log, title, first_line, last_line)  -- None = whole file
+def _find(lines, text, nth=1):
+    """1-based line number of the nth line containing text."""
+    hits = [i for i, l in enumerate(lines, 1) if text in l]
+    if len(hits) < nth:
+        raise SystemExit(f"anchor not found: {text!r} (#{nth})")
+    return hits[nth - 1]
+
+
+# image -> f(lines) -> (first, last). Same windows as the original report:
+WINDOWS = {
+    # first 40 lines: loading, first allocations and page-table dumps
+    "04_os_0_alloc.png": lambda L: (1, 40),
+    # from the page-table line just before "Time slot 21" to 3 lines before the end
+    "05_os_0_rw.png": lambda L: (_find(L, "Time slot  21") - 1, len(L) - 3),
+    # 4 lines before the first kmalloc dump .. 4 lines after copy_to_user is refused
+    "06_os_2_kmalloc_dma.png": lambda L: (_find(L, "KERNEL MEMORY AFTER KMALLOC") - 4,
+                                          _find(L, "copy_to_user failed") + 4),
+    # 3 lines before the first write dump .. 3 lines after "read region=3"
+    "07_os_3_kernel_copy.png": lambda L: (_find(L, "PHYSICAL MEMORY AFTER WRITING") - 3,
+                                          _find(L, "read region=3") + 3),
+    "09_sched_0.png": lambda L: (1, 45),
+    # last 21 lines (end of run + MM64 stats)
+    "10_os_1_stats.png": lambda L: (len(L) - 20, len(L)),
+    "12_small_4K.png": lambda L: (1, 40),
+}
+
+# (image, log, title, first_line, last_line)  -- None = whole file / WINDOWS
 SHOTS = [
-    ("01_build.png", "build.output", "make all — build voi software DMA fallback", None, None),
+    ("01_build.png", "build.output", "make all — build voi chip DMA RTL (Verilator)", None, None),
     ("02_os_sc.png", "os_sc.output", "./os os_sc — syscall 440 (custom system call)", None, None),
     ("03_os_syscall_list.png", "os_syscall_list.output", "./os os_syscall_list — syscall 0 (listsyscall)", None, None),
     ("04_os_0_alloc.png", "os_0_mlq_paging.output", "./os os_0_mlq_paging — alloc + page table dump", 1, 40),
@@ -49,6 +76,10 @@ def run(args):
 
 def main():
     for img, log, title, a, b in SHOTS:
+        if img in WINDOWS:
+            with open(os.path.join(ROOT, RUN, log), encoding="utf-8", errors="replace") as f:
+                a, b = WINDOWS[img](f.read().splitlines())
+            print(f"{img}: {log} lines {a}-{b}")
         args = [os.path.join("report", "make_screenshot.py"), os.path.join(RUN, log),
                 os.path.join(IMG, img), title]
         if a is not None:

@@ -3,12 +3,12 @@
 > Môn CO2018 — Operating Systems. Toàn bộ ảnh trong báo cáo là **ảnh chụp kết quả chạy thật**
 > (log được lưu nguyên văn trong `output_run/`, ảnh được render trực tiếp từ log bằng
 > `report/make_screenshot.py` — không chỉnh sửa nội dung). Gantt chart được **parse tự động
-> từ log thật** bằng `report/make_gantt.py`; các biểu đồ số liệu (ảnh 16–18) được parse từ
+> từ log thật** bằng `report/make_gantt.py`; các biểu đồ số liệu (ảnh 16–18, 21–24) được parse từ
 > cùng các log đó bằng `report/make_charts.py`. Lệnh tạo lại toàn bộ: `python report/make_images.py`.
 
-> **Ảnh và log thuộc CÙNG MỘT LẦN CHẠY.** `./run_tests.sh` chạy ngày **15/11/2026, từ 19:22:04
-> đến 19:22:40 (UTC+7)** (= 12:22:04–12:22:40 UTC, giờ ghi trong log), ngay sau đó build lại cấu
-> hình mặc định lúc 19:22:45 để lưu log build. Mọi ảnh 01–14 và 16–24 chỉ lấy dữ liệu từ các file log
+> **Ảnh và log thuộc CÙNG MỘT LẦN CHẠY.** `./run_tests.sh` chạy ngày **16/11/2026, từ 08:44:25
+> đến 08:46:24 (UTC+7)** (= 01:44:25–01:46:24 UTC, giờ ghi trong log), với **chip DMA RTL thật trên
+> Verilator 5.032**. Ngay sau đó, cấu hình mặc định được build lại lúc 08:46:55 để lưu log build. Mọi ảnh 01–14 và 16–24 chỉ lấy dữ liệu từ các file log
 > dưới đây của lần chạy này:
 >
 > - Log console của `run_tests.sh` (exit code + số process hoàn tất, có dấu thời gian): `output_run/run_tests_console.output`
@@ -38,11 +38,13 @@
 ## 1. Môi trường & Build
 
 - Ubuntu Linux, GCC/G++, `make`. Cấu hình mặc định `include/os-cfg.h`: `MLQ_SCHED`, `MM_PAGING`, `MM64`, `IODUMP`, `PAGETBL_DUMP`.
-- **DMA backend tự chọn trong Makefile**: nếu máy có Verilator (`$VERILATOR_ROOT/include/verilated.h`) → build **chip RTL thật**; nếu không → tự fallback sang **software prototype** (`src/dpi_rtl_sw.c`, viết đúng theo Appendix trang 33 của đề). Log bên dưới chạy với software prototype vì môi trường chấm không có Verilator; trên máy có Verilator, `make` sẽ tự dùng RTL mà không cần sửa gì.
+- **DMA backend tự chọn trong Makefile**: nếu máy có Verilator (`$VERILATOR_ROOT/include/verilated.h`), Makefile build **chip RTL thật**; nếu không, Makefile tự fallback sang **software prototype** (`src/dpi_rtl_sw.c`, viết đúng theo Appendix trang 33 của đề).
+- **Toàn bộ log trong `output_run/` được chạy với chip DMA RTL thật** (Verilator 5.032, `/usr/share/verilator`). Ảnh build bên dưới cho thấy các file `src/Vdma_top*.cpp` được biên dịch với `-I/usr/share/verilator/include`, và không có cờ `-DDMA_SW_FALLBACK`. Đây là yêu cầu bắt buộc của đề, mục 3.2 *Requirements → Co-processor* (trang 26): *"Students may use this software prototype to develop and test a preliminary solution. However, … all group projects and presentations must use the real DMA chip engine, supported by the hardware platform backed by verilator."* Theo mục 3.4 (trang 27), phần Co-processor chiếm 3/7 điểm demo.
+- Dòng `Initialized dma_rtl simulation` do thread co-processor in ra **sau khi** dựng xong mô hình Verilator (`rtl_dma_init_simulation()`, `src/dpi_rtl.cpp`). `main()` không chờ thread này, nên ở các test ngắn không dùng DMA, chương trình có thể kết thúc trước khi dòng đó kịp in. Trong lần chạy này, dòng đó xuất hiện ở 7/16 log, trong đó có cả hai test thật sự dùng DMA (`os_2_mlq_paging` dòng 35, `os_2_singleCPU_mlq_paging` dòng 69).
 
 ![Build](report/images/01_build.png)
 
-Chạy toàn bộ 16 test case bằng `./run_tests.sh` → **16/16 pass** (mọi process đều `has finished`, exit=0).
+Chạy toàn bộ 16 test case bằng `./run_tests.sh` → **16/16 pass** (mọi process đều `has finished`, exit=0). Ở lần chạy này, `os_1_singleCPU_mlq` (chế độ `MM_FIXED_MEMSZ`) **không còn lệnh cấp phát nào thất bại**. Trước khi sửa lỗi tràn số `int maxsz` (mục 4.5), test này có 8 dòng `liballoc failed`/`Invalid memory operation`, dù mọi process vẫn kết thúc.
 Biểu đồ dưới parse từ `output_run/run_tests_console.output` (exit code, số `has finished`) và đếm số dòng
 `Loaded a process` trong từng `output_run/<test>.output` (mẫu số):
 
@@ -53,7 +55,11 @@ Biểu đồ dưới parse từ `output_run/run_tests_console.output` (exit code
 ### 2.1 Thiết kế
 
 - **`queue.c`**: `enqueue()` thêm vào cuối (FIFO), `dequeue()` lấy phần tử có **priority cao nhất** (giá trị `prio` nhỏ nhất — trong MLQ mỗi hàng đợi chứa cùng prio nên suy biến thành FIFO ⇒ round-robin trong một mức), `purgequeue()` gỡ một PCB cụ thể.
-- **`sched.c` — `get_mlq_proc()`**: chính sách đúng như đề mô tả — hàng đợi prio `i` có ngân sách cố định `slot[i] = MAX_PRIO − i`; bộ định thời giữ **con trỏ trạng thái `(curr_prio, curr_slot)`**, phục vụ hàng đợi hiện tại đến khi *hết ngân sách* hoặc *hàng đợi rỗng* rồi mới bước sang mức kế tiếp theo **thứ tự duyệt cố định**; việc còn dang dở chờ vòng duyệt sau. Toàn bộ thao tác nằm trong `queue_lock` (mutex).
+- **`sched.c` — `get_mlq_proc()`**: hàng đợi prio `i` có ngân sách cố định `slot[i] = MAX_PRIO − i` (đề, trang 12–13).
+  - Ở **mỗi lần chọn** process, bộ định thời **quét từ `prio = 0` đến `MAX_PRIO − 1`**, lấy hàng đợi đầu tiên vừa khác rỗng vừa còn ngân sách (`slot[prio] > 0`), rồi giảm `slot[prio]`.
+  - Khi mọi hàng đợi đang có process đều đã dùng hết ngân sách, tức đã hết một vòng duyệt (*"even though it needs a completed round of ready queue"*), bộ định thời nạp lại `slot[i] = MAX_PRIO − i` cho mọi mức và bắt đầu vòng mới.
+  - Toàn bộ thao tác nằm trong `queue_lock` (mutex).
+  - Cách cài này cho thứ tự chọn PID trùng với file mẫu của đề (xem `sched_0` bên dưới và `COSO_SANH_THAY_VA_NHOM.md`).
 - **`running_list`**: process đang chiếm CPU được `get_mlq_proc()` ghi vào `running_list`; khi hết time-slice `put_mlq_proc()` gỡ ra và trả về hàng đợi ready đúng mức prio; khi kết thúc, `remove_proc()` (gọi từ `os.c`) gỡ hẳn để kernel không giữ con trỏ PCB chết. Danh sách này chính là nơi syscall tra PID → PCB (mục 5).
 
 ### 2.2 Kết quả thật & Gantt diagram
@@ -66,13 +72,26 @@ Gantt parse từ chính log trên:
 
 ![Gantt sched_0](report/images/13_gantt_sched_0.png)
 
-**Giải thích:** P1/P2 cùng mức prio 4 nên **luân phiên round-robin** (ngân sách mức 4 là `140−4=136` slot nên hai process này dùng CPU tới khi xong). P3/P4 (prio 0) vào lúc con trỏ MLQ đang đứng ở mức 4 — theo đúng chính sách *fixed traversal*, chúng phải đợi bộ định thời **hoàn tất phần ngân sách của mức hiện tại/vòng duyệt** rồi mới được phục vụ, sau đó cũng luân phiên nhau đến hết. Đây là hành vi đúng của thiết kế "mỗi hàng đợi một ngân sách cố định", khác với preemption tức thời — và là một trong các kết quả "khác sample nhưng giải thích được" mà đề cho phép (loader và scheduler chạy song song).
+**Giải thích (đối chiếu log, time slice 2):**
+1. Slot 1–5: chỉ có P1, P2 (prio 4) nên hai process luân phiên nhau: dispatch P1 ở dòng 5, P2 ở dòng 10.
+2. P3 (prio 0) vào ở slot 4 (dòng 12). Ở **slot 5**, P2 hết time slice (dòng 14), `get_mlq_proc()` quét từ `prio = 0`, thấy `q[0] = [P3]`, nên chọn **P3** (dòng 15). P4 (prio 0) vào ngay sau, cũng ở slot 5 (dòng 16).
+3. Từ slot 5, P3 và P4 luân phiên round-robin trong mức 0. P3 xong ở **slot 18** (dòng 42), P4 xong ở **slot 27** (dòng 61). Mức 0 chỉ dùng 13 lượt, ít hơn ngân sách 140, nên không có lần nạp lại ngân sách nào.
+4. Khi mức 0 rỗng, P1/P2 (prio 4) mới chạy lại, từ slot 27 (dòng 62). P1 xong ở slot 52 (dòng 112), P2 xong ở slot 53 (dòng 115).
+
+**So với file mẫu `output/sched_0.output`:**
+- **Thứ tự chọn PID trùng với mẫu** từ slot 1 đến slot 17 (mẫu dòng 15 cũng dispatch P3 ở slot 5).
+- **Mốc thời gian thì khác**: trong mẫu, P3 kết thúc ở slot 22 (mẫu dòng 50), vì mẫu dispatch P3 5 lần (mẫu dòng 15, 24, 32, 40, 48). Nhưng `input/proc/s1` chỉ có 7 lệnh, nên với time slice 2 chỉ cần 4 lần. Log của nhóm dispatch P3 đúng 4 lần (dòng 15, 24, 32, 40).
+- Vì vậy kết quả **không khớp 100%** với mẫu. Phần lệch đến từ độ dài chương trình trong mẫu, không phải từ bộ định thời; xem `COSO_SANH_THAY_VA_NHOM.md`, mục 5.4.
 
 Dòng thời gian theo **từng process** (cùng log; xám = đang nằm trong hàng đợi chờ CPU):
 
 ![Timeline sched_0](report/images/21_timeline_sched_0.png)
 
-Biểu đồ cho thấy trực tiếp cái giá của chính sách: P3 (nạp slot 4) và P4 (nạp slot 5) có prio 0 nhưng phải chờ liền một mạch tới slot 31 và 33, tổng thời gian chờ **33 slot** mỗi process. Trong khi đó P1/P2 (prio 4) chỉ chờ 15 slot, và đó là thời gian nhường lượt cho nhau trong cùng mức.
+Biểu đồ cho thấy trực tiếp hệ quả của việc quét từ `prio = 0`:
+- P3, P4 (prio 0) được phục vụ gần như ngay khi vào, mỗi process chỉ chờ tổng **7 slot**; đó là các lượt nhường nhau trong cùng mức.
+- P1, P2 (prio 4) bị dừng liền từ slot 5 đến slot 27, tổng chờ **37 slot** mỗi process.
+
+Mức thấp hơn phải chờ cho tới khi mức cao rỗng, hoặc tới khi mức cao dùng hết ngân sách `slot[0] = 140`; điều kiện thứ hai chống bỏ đói (starvation) khi mức cao luôn có việc.
 
 Test `os_0_mlq_paging` (2 CPU, 5 process: P2 prio 15, P1/P3/P4/P5 prio 0 — đúng như dòng `Loaded a process … PRIO` trong log và `input/os_0_mlq_paging`):
 
@@ -95,12 +114,14 @@ Gantt parse từ chính log trên:
 ![Gantt sched](report/images/20_gantt_sched.png)
 
 **Giải thích (đối chiếu log):**
-1. Slot 1: CPU 1 lấy P1 (prio 0). Slot 2: hàng đợi mức 0 đã rỗng → con trỏ MLQ bước sang mức 1, CPU 0 lấy P2.
-2. Slot 4: P4 (prio 0) vào hàng đợi; slot 5: P1 hết time slice (4 slot) và được trả về mức 0 — nhưng CPU 1 lấy **P3 (prio 1)**, vì con trỏ đang đứng ở mức 1, mức này còn ngân sách (`140−1=139` slot) và chưa rỗng. Cũng vì vậy ở slot 6 và 10, CPU 0 lấy lại chính P2 dù P1/P4 prio 0 đang chờ.
-3. Slot 12: P2 xong, mức 1 không còn process chờ (P3 đang chạy) → con trỏ quay về mức 0: CPU 0 lấy P4 (slot 12), CPU 1 lấy P1 (slot 13); P3 bị trả về mức 1 ở slot 13 và chỉ chạy lại ở slot 21, khi P1 kết thúc.
-4. Hệ quả: P1 chờ từ slot 5 đến 13 và P4 chờ từ slot 4 đến 12 (mỗi process 8 slot) dù có prio cao hơn — cùng hành vi *fixed traversal* như `sched_0`, nhưng ở đây thấy rõ trên **2 CPU** chạy song song. Toàn bộ kết thúc ở slot 25 (P2: 12, P1: 21, P4: 23, P3: 25).
+1. Slot 0: CPU 0 lấy P1 (prio 0, dòng 4). Slot 2: CPU 1 lấy P2 (prio 1, dòng 8), vì lúc đó mức 0 không còn process chờ.
+2. Slot 4: P1 hết time slice. Mức 0 lúc đó chỉ có P1, nên CPU 0 lấy lại chính P1 (dòng 12–13). P4 (prio 0) vào ngay sau đó (dòng 14).
+3. Slot 6: P2 hết time slice. Quét từ `prio = 0` thấy `q[0] = [P4]`, nên CPU 1 lấy **P4** (dòng 17–18), còn P2 về lại mức 1. Từ đây, hai CPU phục vụ P1 và P4 (prio 0) cho tới khi xong: P1 xong ở slot 12 (dòng 29), P4 xong ở slot 17 (dòng 40).
+4. Chỉ khi mức 0 không còn process chờ, mức 1 mới được phục vụ. P3 chạy từ slot 12 (dòng 30), P2 chạy lại từ slot 16 (dòng 38); trong mức 1, hai process theo thứ tự FIFO. P2 xong ở slot 22 (dòng 51), P3 xong ở slot 25 (dòng 56).
 
-Dòng thời gian theo từng process cho thấy đúng hai đoạn chờ 8 slot đó (P1: slot 5→13; P4: slot 4→12). Tổng thời gian chờ là P1 9 slot (gồm 1 slot trước lần dispatch đầu), P2 1, P3 10, P4 8:
+Dòng thời gian theo từng process:
+- P1, P4 (prio 0) gần như không phải chờ: P1 chờ 0 slot, P4 chờ 2 slot (slot 4→6).
+- P2, P3 (prio 1) chờ lâu: P2 chờ 10 slot liền (slot 6→16), tổng 11 slot; P3 chờ từ lúc vào (slot 3) tới slot 12, tổng 10 slot.
 
 ![Timeline sched](report/images/22_timeline_sched.png)
 
@@ -169,6 +190,19 @@ Dữ liệu sống sót nguyên vẹn qua một chu trình swap-out/swap-in ⇒ 
 
 ![small 4K](report/images/12_small_4K.png)
 
+### 4.5 Sửa lỗi tràn số ở chế độ `MM_FIXED_MEMSZ`
+
+Ở chế độ legacy (`MM_FIXED_MEMSZ`, dùng cho `sched*` và `os_1_singleCPU_mlq`), bộ khung đặt cứng `memramsz = 0x100000000` (4 GB) trong `src/os.c`. Nhưng `struct memphy_struct` lại lưu kích thước bằng `int maxsz` (và `int cursor`) trong `include/os-mm.h`.
+
+Giá trị 2³² bị tràn về 0, nên `MEMPHY_format()` tính ra 0 frame và mọi lệnh `alloc` đều thất bại. Ví dụ log cũ của `os_1_singleCPU_mlq` có dòng `liballoc failed: PID=7 region=0 size=300`, kéo theo các dòng `Invalid memory operation`, tổng cộng 8 dòng lỗi.
+
+Cách sửa:
+- Đổi `maxsz`, `cursor` sang `addr_t` (64-bit).
+- Đổi các biến đếm frame trong `src/mm-memphy.c` (`numfp`, `iter`, `numstep`, `i`) sang `addr_t`, và kiểm tra `numfp == 0` thay cho `<= 0`.
+- **Giữ nguyên** `memramsz = 0x100000000` như bộ khung.
+
+Sau khi sửa, `os_1_singleCPU_mlq` không còn lệnh cấp phát nào thất bại. Thống kê MM64 của test này tăng từ 9 bảng/0 walk lên 17 bảng/30 walk (mục 9), vì các lệnh cấp phát, đọc và ghi giờ chạy được thật.
+
 ## 5. Kernel memory & dual-space
 
 ### 5.1 Tách user space / kernel space
@@ -194,14 +228,25 @@ Mọi syscall đi qua `_syscall(caller->krnl, caller->pid, 17, &regs)` — **ch�
 ### 6.1 Cơ chế bất đồng bộ đã cài
 
 1. CPU thực hiện `dma_memcpy src dst off size`: **dịch địa chỉ ảo → địa chỉ bus (vật lý) qua MMU** (`virt_to_phys()` duyệt bảng trang user/kernel), cắt theo biên trang, rồi **đẩy descriptor vào mailbox** (`dma_submit_and_wait()` trong `libmem.c`) và ngủ trên condition variable.
-2. **Thread co-processor** (`co_processor()` trong `os.c` → `dma_worker_loop()`): nhận descriptor, lần đầu sẽ **attach MEMRAM của OS làm memory bank** (`memory_bank_attach()` — co-processor truy cập thẳng bộ nhớ vật lý qua **bus address, không qua MMU**, đúng phân biệt hai góc nhìn trong đề), gọi `do_dma()` → engine copy, rồi phát **ngắt hoàn thành `dma_done_callback()`** (`DMA completed`) và đánh thức CPU.
+2. **Thread co-processor** (`co_processor()` trong `os.c` → `dma_worker_loop()`): nhận descriptor, lần đầu sẽ **attach MEMRAM của OS làm memory bank** (`memory_bank_attach()` — co-processor truy cập thẳng bộ nhớ vật lý qua **bus address, không qua MMU**, đúng phân biệt hai góc nhìn trong đề), gọi `do_dma()` để engine thực hiện copy, rồi đánh thức CPU.
+   - **Ngắt hoàn thành `dma_done_callback()`** (in ra `DMA completed`) do **chính chip RTL phát ra**: khi `ch_done` lên mức cao, chip gọi hàm này qua DPI import (code Verilator sinh ra, `src/Vdma_top___024root__DepSet_h5e408f77__0.cpp` dòng 50).
+   - Bản software prototype không có đường IRQ riêng. Vì vậy, chỉ khi build software (`DMA_SW_FALLBACK`), `dma_worker_loop()` mới tự gọi `dma_done_callback()`.
+   - Trước khi sửa, `dma_worker_loop()` gọi thêm hàm này ngay cả khi chạy chip RTL, nên mỗi lần `dma_memcpy` in ra 2 dòng `DMA completed`. Giờ mỗi lần truyền chỉ còn đúng một ngắt.
 3. TODO "map system OS memory address" trong `dpi_dma_copy()` được điền: `src/dst = krnl->mram->storage + offset`.
 
 ### 6.2 Kết quả thật (`os_2_mlq_paging`, chương trình `m2s` của đề)
 
 ![os_2 kmalloc dma](report/images/06_os_2_kmalloc_dma.png)
 
-**Đọc kết quả:** `DMA CALL: bank=0, src=300, dst=4096, len=4` — `src=300` đúng là địa chỉ vật lý của user region 1 (frame 0, offset 300), `dst=4096` là frame 1 (kernel region vừa `kmalloc`); engine stream từng từ 32-bit (`DMA Copying data: 0x04030201…`), kết thúc bằng `DMA completed` (callback/ngắt) rồi CPU mới tiếp tục in `DMA MEMCPY DONE`. Hai process (PID 1, PID 4) cùng dùng DMA tuần tự qua mailbox mà không giẫm nhau.
+**Đọc kết quả (chip RTL thật):**
+1. Lần dùng DMA đầu tiên, co-processor gắn MEMRAM của OS làm memory bank (dòng 36 `Memory bank [0] attached to OS MEMRAM: 1048576 bytes …`). Đây là **bus addressing**: chip truy cập thẳng bộ nhớ vật lý, không đi qua MMU.
+2. Dòng 38 `dpi_dma_copy: src=300, dst=4096, len=4`:
+   - `src=300` là địa chỉ vật lý của user region 1 (frame 0, offset 300), do CPU dịch qua MMU;
+   - `dst=4096` là frame 1, tức kernel region vừa `kmalloc`.
+3. Dữ liệu trước khi copy là `src = 01 02 03 04`, `dst = 00 00 00 00`.
+4. Dòng 49 `Calling RTL DMA...` giao việc cho chip. Dòng 50 `DMA completed` là ngắt hoàn thành do chip phát qua DPI, và chỉ có **một** ngắt cho mỗi lần truyền.
+5. Sau khi copy, `dst = 01 02 03 04`. Chỉ sau đó CPU mới tiếp tục và in `DMA MEMCPY DONE` (dòng 61–62).
+6. Process thứ hai (PID 4) dùng DMA ở dòng 138 (`src=4396, dst=12288`), có ngắt ở dòng 152 và hoàn tất ở dòng 163–164. Hai process lần lượt dùng chip qua mailbox mà không giẫm lên nhau.
 
 ## 7. Đồng bộ hóa
 
@@ -232,7 +277,7 @@ OS thật không "giết" syscall tùy tiện mà dùng các cơ chế: (i) **ti
 
 - **Nhiều hàng đợi tách theo priority**: dequeue O(1) theo mức; cách ly lớp tải (interactive vs batch); không phải quét toàn bộ ready list như một hàng đợi priority đơn.
 - **Ngân sách cố định `slot[i] = MAX_PRIO − i`**: ưu tiên có **trọng số tỷ lệ** — prio 0 được 140 slot/vòng, prio 139 vẫn được 1 slot/vòng ⇒ **chống starvation tuyệt đối** (khác strict-priority thuần có thể bỏ đói mức thấp), đồng thời vẫn bảo đảm phân biệt thứ bậc rõ.
-- **Duyệt theo thứ tự cố định, hết ngân sách mới sang mức kế**: hành vi **dự đoán được** và chi phí chuyển mức thấp (con trỏ trạng thái `(curr_prio, curr_slot)` — O(1) mỗi lần lấy proc); minh họa thật ở Gantt `sched_0`: P3/P4 prio 0 đến muộn phải chờ hết phần vòng hiện tại — công bằng theo vòng, không phá round đang chạy.
+- **Quét từ `prio = 0` ở mỗi lần chọn, kết hợp ngân sách `slot[prio]` theo vòng**: process ưu tiên cao vừa đến được phục vụ ngay khi CPU kết thúc time slice hiện tại. Minh họa thật ở `sched_0`: P3 (prio 0) được chọn ở slot 5 (`output_run/sched_0.output` dòng 15), còn P1/P2 (prio 4) phải chờ. Đồng thời, số lượt của mỗi mức trong một vòng bị giới hạn ở `MAX_PRIO − prio`. Hết ngân sách thì mức đó phải nhường cho các mức sau cho tới vòng kế, nhờ vậy mức thấp không bị bỏ đói vĩnh viễn.
 - **Round-robin trong một mức** (FIFO cùng prio): các process ngang hàng chia CPU đều, tránh bỏ đói trong mức.
 
 ### Q4 — Vì sao kết hợp segmentation với paging?
@@ -286,12 +331,12 @@ Số liệu dòng `MM64 stats` của **cả 16 test** trong lần chạy này (p
 | sched (legacy, 4 proc) | 5 | 20 KB | 0 |
 | sched_0 (legacy, 4 proc) | 5 | 20 KB | 0 |
 | sched_1 (legacy, 5 proc) | 6 | 24 KB | 0 |
-| os_1_singleCPU_mlq (legacy, 8 proc) | 9 | 36 KB | 0 |
+| os_1_singleCPU_mlq (legacy, 8 proc) | 17 | 68 KB | 30 |
 
-**Diễn giải:** mỗi process chạm vài trang chỉ tốn ~5 bảng (1 PGD + 1 nhánh P4D→PT ≈ 20KB); tổng cho cả hệ (nhiều process + kernel) chỉ vài chục KB — so với ~275TB/process nếu dựng cây tĩnh ⇒ **lợi ích thiết kế demand allocation là quyết định**. Số walk (mỗi walk ≤ 5 truy cập bảng) tỷ lệ với số thao tác alloc/read/write/swap, đúng kỳ vọng lý thuyết N-level paging; các test chỉ lập lịch (sched*, legacy) hoặc có `alloc` thất bại (os_syscall, small_1K) có 0 walk vì không có thao tác bộ nhớ thành công nào cần dịch địa chỉ.
+**Diễn giải:** mỗi process chạm vài trang chỉ tốn ~5 bảng (1 PGD + 1 nhánh P4D→PT ≈ 20KB); tổng cho cả hệ (nhiều process + kernel) chỉ vài chục KB — so với ~275TB/process nếu dựng cây tĩnh ⇒ **lợi ích thiết kế demand allocation là quyết định**. Số walk (mỗi walk ≤ 5 truy cập bảng) tỷ lệ với số thao tác alloc/read/write/swap, đúng kỳ vọng lý thuyết N-level paging; các test chỉ lập lịch (`sched*`), hoặc có `alloc` thất bại do RAM được khai báo nhỏ hơn một trang (`os_syscall`, `small_1K`), có 0 walk vì không có thao tác bộ nhớ thành công nào cần dịch địa chỉ. `os_1_singleCPU_mlq` có 30 walk vì sau khi sửa lỗi tràn số ở mục 4.5, các thao tác bộ nhớ của test này chạy được thật.
 
 So sánh trên thang log giữa mức đo được lớn nhất (os_1_mlq_paging, cả hệ: 84 KB) và cây tĩnh lý thuyết của **một** process (tính toán, không đo):
 
 ![Demand vs cây tĩnh](report/images/18_chart_demand.png)
 
-**Kết luận:** Toàn bộ hạng mục đề yêu cầu đã hoàn thành — MLQ scheduler (có Gantt), 5-level paging 64-bit (demand allocation, có sơ đồ dịch địa chỉ + thống kê), swap FIFO qua syscall, tách user/kernel space với PID passing, kmalloc contiguous, copy_from/to_user, DMA bất đồng bộ với callback/ngắt (RTL + software prototype fallback), syscall 440 tự thêm, đồng bộ hóa đầy đủ. **16/16 test case chạy thành công**; mọi kết quả trong báo cáo đều là output thật lưu tại `output_run/`, kiểm chứng lại được theo `TESTING_GUIDE.md`.
+**Kết luận:** Toàn bộ hạng mục đề yêu cầu đã hoàn thành — MLQ scheduler (có Gantt), 5-level paging 64-bit (demand allocation, có sơ đồ dịch địa chỉ + thống kê), swap FIFO qua syscall, tách user/kernel space với PID passing, kmalloc contiguous, copy_from/to_user, DMA bất đồng bộ với ngắt hoàn thành, **chạy trên chip RTL thật (Verilator)** như mục 3.2 của đề yêu cầu (software prototype chỉ là phương án dự phòng), syscall 440 tự thêm, đồng bộ hóa đầy đủ. **16/16 test case chạy thành công**, không còn lỗi cấp phát ở chế độ `MM_FIXED_MEMSZ`; mọi kết quả trong báo cáo đều là output thật lưu tại `output_run/`, kiểm chứng lại được theo `TESTING_GUIDE.md`.

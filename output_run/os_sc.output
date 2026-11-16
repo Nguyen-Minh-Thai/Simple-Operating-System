@@ -1,6 +1,5 @@
 Time slot   0
 ld_routine
-Initialized dma software prototype engine (no Verilator RTL)
 Time slot   1
 Time slot   2
 	Loaded a process at input/proc/sc3, PID: 1 PRIO: 15
