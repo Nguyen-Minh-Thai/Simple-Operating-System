@@ -28,7 +28,7 @@ int queue_empty(void) {
 #ifdef MLQ_SCHED
 	unsigned long prio;
 	for (prio = 0; prio < MAX_PRIO; prio++)
-		if(!empty(&mlq_ready_queue[prio]))
+		if(!empty(&mlq_ready_queue[prio])) 
 			return -1;
 #endif
 	return (empty(&ready_queue) && empty(&run_queue));
@@ -40,7 +40,7 @@ void init_scheduler(void) {
 
 	for (i = 0; i < MAX_PRIO; i ++) {
 		mlq_ready_queue[i].size = 0;
-		slot[i] = MAX_PRIO - i;
+		slot[i] = MAX_PRIO - i; 
 	}
 #endif
 	ready_queue.size = 0;
@@ -49,41 +49,8 @@ void init_scheduler(void) {
 	pthread_mutex_init(&queue_lock, NULL);
 }
 
-/* remove_proc - drop a finished process out of the running list
- * so the kernel never holds a dangling PCB pointer.
- */
-void remove_proc(struct pcb_t * proc) {
-	pthread_mutex_lock(&queue_lock);
-	purgequeue(&running_list, proc);
-	pthread_mutex_unlock(&queue_lock);
-}
-
-/* find_running_proc - resolve a PID to its PCB.
- *
- * Dual-space design: a system call handler runs in kernel space and
- * only receives the caller PID (PID passing). The kernel then looks
- * the PCB up in its own bookkeeping (running_list) instead of taking
- * a raw userspace PCB pointer.
- */
-struct pcb_t * find_running_proc(uint32_t pid) {
-	int i;
-	struct pcb_t *found = NULL;
-
-	pthread_mutex_lock(&queue_lock);
-	for (i = 0; i < running_list.size; i++) {
-		if (running_list.proc[i] != NULL &&
-		    running_list.proc[i]->pid == pid) {
-			found = running_list.proc[i];
-			break;
-		}
-	}
-	pthread_mutex_unlock(&queue_lock);
-
-	return found;
-}
-
 #ifdef MLQ_SCHED
-/*
+/* 
  *  Stateful design for routine calling
  *  based on the priority and our MLQ policy
  *  We implement stateful here using transition technique
@@ -91,47 +58,30 @@ struct pcb_t * find_running_proc(uint32_t pid) {
  */
 struct pcb_t * get_mlq_proc(void) {
 	struct pcb_t * proc = NULL;
-	int prio;
 
 	pthread_mutex_lock(&queue_lock);
 	/*TODO: get a process from PRIORITY [ready_queue].
 	 *      It worth to protect by a mechanism.
 	 * */
-
-	/* Always scan from highest priority (0) to lowest (MAX_PRIO - 1).
-	 * A queue at priority i can dispatch if it is non-empty and still
-	 * has remaining slot budget (slot[i] > 0).
-	 */
-	for (prio = 0; prio < MAX_PRIO; prio++) {
-		if (!empty(&mlq_ready_queue[prio]) && slot[prio] > 0) {
-			proc = dequeue(&mlq_ready_queue[prio]);
-			slot[prio]--;
-			break;
+	for (int prio = 0; prio < MAX_PRIO; ++prio) {
+		if (!empty(&mlq_ready_queue[prio])) {
+			if (slot[prio] > 0) {
+				proc = dequeue(&mlq_ready_queue[prio]);
+				slot[prio]--;
+				break;
+			} 
 		}
 	}
 
-	/* If no process was picked, check whether any queue still holds
-	 * ready processes whose slot budget reached 0. If so, replenish
-	 * all slot budgets for a new MLQ epoch and scan again from prio 0.
-	 */
 	if (proc == NULL) {
-		int has_ready = 0;
-		for (prio = 0; prio < MAX_PRIO; prio++) {
-			if (!empty(&mlq_ready_queue[prio])) {
-				has_ready = 1;
-				break;
-			}
+		for (int prio = 0; prio < MAX_PRIO; ++prio) {
+			slot[prio] = MAX_PRIO - prio;
 		}
-		if (has_ready) {
-			for (prio = 0; prio < MAX_PRIO; prio++) {
-				slot[prio] = MAX_PRIO - prio;
-			}
-			for (prio = 0; prio < MAX_PRIO; prio++) {
-				if (!empty(&mlq_ready_queue[prio]) && slot[prio] > 0) {
-					proc = dequeue(&mlq_ready_queue[prio]);
-					slot[prio]--;
-					break;
-				}
+		for (int prio = 0; prio < MAX_PRIO; ++prio) {
+			if (!empty(&mlq_ready_queue[prio])) {
+				proc = dequeue(&mlq_ready_queue[prio]);
+				slot[prio]--;
+				break;
 			}
 		}
 	}
@@ -140,7 +90,7 @@ struct pcb_t * get_mlq_proc(void) {
 		enqueue(&running_list, proc);
 
 	pthread_mutex_unlock(&queue_lock);
-	return proc;
+	return proc;	
 }
 
 void put_mlq_proc(struct pcb_t * proc) {
@@ -148,14 +98,12 @@ void put_mlq_proc(struct pcb_t * proc) {
 	proc->krnl->mlq_ready_queue = mlq_ready_queue;
 	proc->krnl->running_list = &running_list;
 
-	/* TODO: put running proc to running_list
+	/* TODO: put running proc to running_list 
 	 *       It worth to protect by a mechanism.
-	 *
+	 * 
 	 */
 
 	pthread_mutex_lock(&queue_lock);
-	/* The process leaves the CPU: remove it from the running list
-	 * before pushing it back to its priority ready queue */
 	purgequeue(&running_list, proc);
 	enqueue(&mlq_ready_queue[proc->prio], proc);
 	pthread_mutex_unlock(&queue_lock);
@@ -168,12 +116,12 @@ void add_mlq_proc(struct pcb_t * proc) {
 
 	/* TODO: put running proc to running_list
 	 *       It worth to protect by a mechanism.
-	 *
+	 * 
 	 */
-
+       
 	pthread_mutex_lock(&queue_lock);
 	enqueue(&mlq_ready_queue[proc->prio], proc);
-	pthread_mutex_unlock(&queue_lock);
+	pthread_mutex_unlock(&queue_lock);	
 }
 
 struct pcb_t * get_proc(void) {
@@ -194,9 +142,13 @@ struct pcb_t * get_proc(void) {
 	pthread_mutex_lock(&queue_lock);
 	/*TODO: get a process from [ready_queue].
 	 *       It worth to protect by a mechanism.
-	 *
+	 * 
 	 */
-	proc = dequeue(&ready_queue);
+	if (!empty(&ready_queue)) {
+		proc = dequeue(&ready_queue);
+	} else if (!empty(&run_queue)) {
+		proc = dequeue(&run_queue);
+	}
 
 	if (proc != NULL)
 		enqueue(&running_list, proc);
@@ -210,16 +162,14 @@ void put_proc(struct pcb_t * proc) {
 	proc->krnl->ready_queue = &ready_queue;
 	proc->krnl->running_list = &running_list;
 
-	/* TODO: put running proc to running_list
+	/* TODO: put running proc to running_list 
 	 *       It worth to protect by a mechanism.
-	 *
+	 * 
 	 */
 
 	pthread_mutex_lock(&queue_lock);
 	purgequeue(&running_list, proc);
-	/* run_queue is obsoleted (see assignment note), the process is
-	 * pushed back to ready_queue to get another CPU turn */
-	enqueue(&ready_queue, proc);
+	enqueue(&run_queue, proc);
 	pthread_mutex_unlock(&queue_lock);
 }
 
@@ -227,14 +177,14 @@ void add_proc(struct pcb_t * proc) {
 	proc->krnl->ready_queue = &ready_queue;
 	proc->krnl->running_list = &running_list;
 
-	/* TODO: put running proc to running_list
+	/* TODO: put running proc to running_list 
 	 *       It worth to protect by a mechanism.
-	 *
+	 * 
 	 */
 
 	pthread_mutex_lock(&queue_lock);
 	enqueue(&ready_queue, proc);
-	pthread_mutex_unlock(&queue_lock);
+	pthread_mutex_unlock(&queue_lock);	
 }
 #endif
 
