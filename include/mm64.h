@@ -53,7 +53,14 @@
 //GETVAL(addr,PAGING64_ADDR_PGD_MASK,PAGING64_ADDR_PGD_LOBIT)
 
 
-/* Kernel space layout (canonical-address style separation)
+/* macOS-style User Virtual Memory Layout (Section 2.2.1 & Page 31)
+ * ----------------------------------------------------------------
+ * __PAGEZERO : [0x0000000000000000 .. 0x0000000000001000) - 4KB unmapped guard
+ * VMA 0 Small: [0x0000000010000000 .. 0x0000000020000000) - 256MB (size <= 256B)
+ * VMA 1 Med  : [0x0000000020000000 .. 0x0000000040000000) - 512MB (256B < size <= 4KB)
+ * VMA 2 Large: [0x0000000040000000 .. 0x0000000080000000) - 1GB   (size > 4KB, DMA-friendly)
+ *
+ * Kernel space layout (canonical-address style separation)
  * ---------------------------------------------------------
  * Userspace  : [0 .. 2^56)            - bit 56 cleared
  * Kernelspace: [2^56 .. 2^57)         - bit 56 set (KERNEL_BASE_ADDR)
@@ -61,6 +68,22 @@
  * instructions are rejected on such addresses; data must go through
  * copy_from_user()/copy_to_user() instead.
  */
+#define MM64_PAGEZERO_END    0x0000000000001000ULL
+
+#define MM64_VMA_SMALL_ID    0
+#define MM64_VMA_MEDIUM_ID   1
+#define MM64_VMA_LARGE_ID    2
+
+#define MM64_SMALL_START     0x0000000010000000ULL
+#define MM64_SMALL_END       0x0000000020000000ULL
+#define MM64_MEDIUM_START    0x0000000020000000ULL
+#define MM64_MEDIUM_END      0x0000000040000000ULL
+#define MM64_LARGE_START     0x0000000040000000ULL
+#define MM64_LARGE_END       0x0000000080000000ULL
+
+#define MM64_SMALL_MAX_SZ    256
+#define MM64_MEDIUM_MAX_SZ   4096
+
 #define KERNEL_BASE_ADDR   (1ULL << 56)
 #define IS_KERNEL_ADDR(a)  (((addr_t)(a)) >= (addr_t)KERNEL_BASE_ADDR)
 
@@ -71,6 +94,9 @@
 #define PAGING64_ADDR_PUD_MASK  GENMASK64(PAGING64_ADDR_PUD_HIBIT,PAGING64_ADDR_PUD_LOBIT)
 #define PAGING64_ADDR_P4D_MASK  GENMASK64(PAGING64_ADDR_P4D_HIBIT,PAGING64_ADDR_P4D_LOBIT)
 #define PAGING64_ADDR_PGD_MASK  GENMASK64(PAGING64_ADDR_PGD_HIBIT,PAGING64_ADDR_PGD_LOBIT)
+
+/* Select macOS-style VMA zone (0: Small, 1: Medium, 2: Large) by allocation size */
+int mm64_select_vmaid(addr_t size);
 
 /* Report statistics: number of pte walks and multilevel paging storage */
 void mm64_dump_stats(void);
