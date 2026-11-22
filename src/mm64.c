@@ -119,6 +119,20 @@ static addr_t *pte_slot(struct mm_struct *mm, addr_t pgn, int alloc)
   return &pt_tbl[pt_idx];
 }
 
+/* Select macOS-style VMA zone by requested allocation size:
+ *   size <= 256B        -> VMA 0 (Small)
+ *   256B < size <= 4KB  -> VMA 1 (Medium)
+ *   size > 4KB          -> VMA 2 (Large, DMA-friendly)
+ */
+int mm64_select_vmaid(addr_t size)
+{
+  if (size <= MM64_SMALL_MAX_SZ)
+    return MM64_VMA_SMALL_ID;
+  if (size <= MM64_MEDIUM_MAX_SZ)
+    return MM64_VMA_MEDIUM_ID;
+  return MM64_VMA_LARGE_ID;
+}
+
 /* Expose statistics (used in report interpretation) */
 void mm64_dump_stats(void)
 {
@@ -342,9 +356,23 @@ addr_t vmap_page_range(struct pcb_t *caller,           // process call
   /* TODO: update the rg_end and rg_start of ret_rg */
   if (ret_rg != NULL)
   {
+    int vmaid = MM64_VMA_SMALL_ID;
+    if (caller != NULL && caller->mm != NULL)
+    {
+      struct vm_area_struct *vma = caller->mm->mmap;
+      while (vma != NULL)
+      {
+        if (addr >= vma->vm_start && addr < vma->vm_end)
+        {
+          vmaid = (int)vma->vm_id;
+          break;
+        }
+        vma = vma->vm_next;
+      }
+    }
     ret_rg->rg_start = addr;
     ret_rg->rg_end = addr + (addr_t)pgnum * PAGING64_PAGESZ;
-    ret_rg->vmaid = 0;
+    ret_rg->vmaid = vmaid;
   }
 
   /* TODO map range of frame to address space
@@ -460,9 +488,16 @@ addr_t vm_map_ram(struct pcb_t *caller, addr_t astart, addr_t aend, addr_t mapst
     return -1;
   }
 
+  /* In macOS-style fixed-cap VMAs, vm_end is the ceiling of the VMA
+   * while sbrk grows inside [vm_start, vm_end). Ensure the frames are
+   * always mapped at the newly raised break [astart, aend) rather than
+   * beyond the VMA ceiling even if a caller passes old vm_end.
+   */
+  addr_t map_addr = (mapstart >= astart && mapstart < aend) ? mapstart : astart;
+
   /* it leaves the case of memory is enough but half in ram, half in swap
    * do the swaping all to swapper to get the all in ram */
-   vmap_page_range(caller, mapstart, incpgnum, frm_lst, ret_rg);
+  vmap_page_range(caller, map_addr, incpgnum, frm_lst, ret_rg);
 
   return 0;
 }
@@ -499,14 +534,12 @@ int __swap_cp_page(struct memphy_struct *mpsrc, addr_t srcfpn,
 }
 
 /*
- *Initialize a empty Memory Management instance
+ * Initialize an empty Memory Management instance (macOS-style layout)
  * @mm:     self mm
- * @caller: mm owner
+ * @caller: mm owner (NULL for kernel mm, non-NULL for user process)
  */
 int init_mm(struct mm_struct *mm, struct pcb_t *caller)
 {
-  struct vm_area_struct *vma0 = malloc(sizeof(struct vm_area_struct));
-
   /* TODO init page table directory */
   /* Top level directory is allocated here, the lower levels
    * (p4d/pud/pmd/pt) are demand-allocated at the first mapping
@@ -518,23 +551,63 @@ int init_mm(struct mm_struct *mm, struct pcb_t *caller)
   mm->pmd = NULL;
   mm->pt = NULL;
 
-  /* By default the owner comes with at least one vma */
-  vma0->vm_id = 0;
-  vma0->vm_start = 0;
-  vma0->vm_end = vma0->vm_start;
-  vma0->sbrk = vma0->vm_start;
-  vma0->vm_freerg_list = NULL;
-  struct vm_rg_struct *first_rg = init_vm_rg(vma0->vm_start, vma0->vm_end);
-  enlist_vm_rg_node(&vma0->vm_freerg_list, first_rg);
+  if (caller == NULL)
+  {
+    /* Kernel memory mapping (os.mm): single shared supervisor VMA
+     * residing in canonical high space [KERNEL_BASE_ADDR .. 2^57) */
+    struct vm_area_struct *kvma = malloc(sizeof(struct vm_area_struct));
+    kvma->vm_id = 0;
+    kvma->vm_start = KERNEL_BASE_ADDR;
+    kvma->vm_end = KERNEL_BASE_ADDR;
+    kvma->sbrk = KERNEL_BASE_ADDR;
+    kvma->vm_freerg_list = NULL;
+    kvma->vm_next = NULL;
+    kvma->vm_mm = mm;
+    mm->mmap = kvma;
+  }
+  else
+  {
+    /* macOS-style user address layout (Section 2.2.1 & Page 31):
+     *   [0x00000000 .. 0x00001000) : __PAGEZERO (unmapped null guard)
+     *   VMA 0 (Small)  : [0x10000000 .. 0x20000000) - 256MB
+     *   VMA 1 (Medium) : [0x20000000 .. 0x40000000) - 512MB
+     *   VMA 2 (Large)  : [0x40000000 .. 0x80000000) - 1GB
+     */
+    struct vm_area_struct *vma0 = malloc(sizeof(struct vm_area_struct));
+    struct vm_area_struct *vma1 = malloc(sizeof(struct vm_area_struct));
+    struct vm_area_struct *vma2 = malloc(sizeof(struct vm_area_struct));
 
-  /* TODO update VMA0 next */
-  vma0->vm_next = NULL;
+    vma0->vm_id = MM64_VMA_SMALL_ID;
+    vma0->vm_start = MM64_SMALL_START;
+    vma0->vm_end = MM64_SMALL_END;
+    vma0->sbrk = vma0->vm_start;
+    vma0->vm_freerg_list = NULL;
 
-  /* Point vma owner backward */
-  vma0->vm_mm = mm;
+    vma1->vm_id = MM64_VMA_MEDIUM_ID;
+    vma1->vm_start = MM64_MEDIUM_START;
+    vma1->vm_end = MM64_MEDIUM_END;
+    vma1->sbrk = vma1->vm_start;
+    vma1->vm_freerg_list = NULL;
 
-  /* TODO: update mmap */
-  mm->mmap = vma0;
+    vma2->vm_id = MM64_VMA_LARGE_ID;
+    vma2->vm_start = MM64_LARGE_START;
+    vma2->vm_end = MM64_LARGE_END;
+    vma2->sbrk = vma2->vm_start;
+    vma2->vm_freerg_list = NULL;
+
+    /* Link the 3 macOS-style size-class VMAs */
+    vma0->vm_next = vma1;
+    vma1->vm_next = vma2;
+    vma2->vm_next = NULL;
+
+    /* Point vma owner backward */
+    vma0->vm_mm = mm;
+    vma1->vm_mm = mm;
+    vma2->vm_mm = mm;
+
+    mm->mmap = vma0;
+  }
+
   memset(mm->symrgtbl, 0, sizeof(mm->symrgtbl));
   mm->fifo_pgn = NULL;
   mm->kcpooltbl = NULL;
@@ -634,29 +707,17 @@ int print_list_pgn(struct pgn_t *ip)
   return 0;
 }
 
-int print_pgtbl(struct pcb_t *caller, addr_t start, addr_t end)
+static void print_pgtbl_range(struct pcb_t *caller, struct mm_struct *mm,
+                              addr_t start, addr_t end)
 {
-  struct mm_struct *mm = caller->mm;
-  addr_t pgn_start, pgn_end, pgit;
-  addr_t pgd=0;
-  addr_t p4d=0;
-  addr_t pud=0;
-  addr_t pmd=0;
-  addr_t pt=0;
+  addr_t pgn_start = start >> PAGING64_ADDR_PT_SHIFT;
+  addr_t pgn_end = (end + PAGING64_PAGESZ - 1) >> PAGING64_ADDR_PT_SHIFT;
+  addr_t pgit;
 
-  get_pd_from_address(start, &pgd, &p4d, &pud, &pmd, &pt);
+  if (pgn_start >= pgn_end)
+    return;
 
-  /* TODO traverse the page map and dump the page directory entries */
-  if (mm == NULL || mm->mmap == NULL)
-    return -1;
-
-  if (end == (addr_t)-1)
-    end = mm->mmap->sbrk; /* default: dump the whole used area */
-
-  pgn_start = start >> PAGING64_ADDR_PT_SHIFT;
-  pgn_end = (end + PAGING64_PAGESZ - 1) >> PAGING64_ADDR_PT_SHIFT;
-
-  /* Perform one walk to refresh the traversed directory caches */
+  /* Refresh the traversed 5-level directory caches on the first mapped page */
   pte_slot(mm, pgn_start, 0);
 
   printf(" PDG=%p P4g=%p PUD=%p PMD=%p\n",
@@ -677,7 +738,54 @@ int print_pgtbl(struct pcb_t *caller, addr_t start, addr_t end)
              (unsigned long)(pgit & 0x1ff), (unsigned long)pgit,
              (unsigned int)PAGING_SWP(pte));
   }
+}
 
+int print_pgtbl(struct pcb_t *caller, addr_t start, addr_t end)
+{
+  struct mm_struct *mm = caller->mm;
+  addr_t pgd = 0, p4d = 0, pud = 0, pmd = 0, pt = 0;
+
+  if (mm == NULL || mm->mmap == NULL)
+    return -1;
+
+  /* Default dump (start=0, end=-1): dump ONLY active ranges [vm_start, sbrk)
+   * across all macOS-style VMAs (Small/Medium/Large), avoiding scanning the
+   * huge unmapped gap below MM64_SMALL_START (0x10000000).
+   */
+  if (start == 0 && end == (addr_t)-1)
+  {
+    struct vm_area_struct *vma = mm->mmap;
+    int printed = 0;
+
+    while (vma != NULL)
+    {
+      if (vma->sbrk > vma->vm_start)
+      {
+        const char *zone = (vma->vm_id == MM64_VMA_SMALL_ID)  ? "SMALL"  :
+                           (vma->vm_id == MM64_VMA_MEDIUM_ID) ? "MEDIUM" :
+                           (vma->vm_id == MM64_VMA_LARGE_ID)  ? "LARGE"  : "VMA";
+        printf(" [VMA %lu - %s: 0x%lx .. 0x%lx]\n",
+               vma->vm_id, zone,
+               (unsigned long)vma->vm_start, (unsigned long)vma->sbrk);
+        print_pgtbl_range(caller, mm, vma->vm_start, vma->sbrk);
+        printed = 1;
+      }
+      vma = vma->vm_next;
+    }
+
+    if (!printed)
+    {
+      printf(" PDG=%p P4g=%p PUD=%p PMD=%p\n",
+             (void *)mm->pgd, (void *)mm->p4d, (void *)mm->pud, (void *)mm->pmd);
+    }
+    return 0;
+  }
+
+  get_pd_from_address(start, &pgd, &p4d, &pud, &pmd, &pt);
+  if (end == (addr_t)-1)
+    end = mm->mmap->sbrk;
+
+  print_pgtbl_range(caller, mm, start, end);
   return 0;
 }
 
