@@ -68,7 +68,7 @@ int MEMPHY_seq_read(struct memphy_struct *mp, addr_t addr, BYTE *value)
  */
 int MEMPHY_read(struct memphy_struct *mp, addr_t addr, BYTE *value)
 {
-   if (mp == NULL)
+   if (mp == NULL || mp->storage == NULL || value == NULL || addr >= mp->maxsz)
       return -1;
 
    if (mp->rdmflg)
@@ -108,7 +108,7 @@ int MEMPHY_seq_write(struct memphy_struct *mp, addr_t addr, BYTE value)
  */
 int MEMPHY_write(struct memphy_struct *mp, addr_t addr, BYTE data)
 {
-   if (mp == NULL)
+   if (mp == NULL || mp->storage == NULL || addr >= mp->maxsz)
       return -1;
 
    if (mp->rdmflg)

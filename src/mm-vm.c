@@ -27,23 +27,20 @@
  */
 struct vm_area_struct *get_vma_by_num(struct mm_struct *mm, int vmaid)
 {
-  struct vm_area_struct *pvma = mm->mmap;
-
-  if (mm->mmap == NULL)
+  if (mm == NULL || mm->mmap == NULL)
     return NULL;
 
-  int vmait = pvma->vm_id;
-
-  while (vmait < vmaid)
+  struct vm_area_struct *pvma = mm->mmap;
+  while (pvma != NULL)
   {
-    if (pvma == NULL)
-      return NULL;
-
+    if ((int)pvma->vm_id == vmaid)
+      return pvma;
     pvma = pvma->vm_next;
-    vmait = pvma->vm_id;
+
   }
 
-  return pvma;
+
+  return NULL;
 }
 
 int __mm_swap_page(struct pcb_t *caller, addr_t vicfpn , addr_t swpfpn)
@@ -62,14 +59,21 @@ int __mm_swap_page(struct pcb_t *caller, addr_t vicfpn , addr_t swpfpn)
  */
 struct vm_rg_struct *get_vm_area_node_at_brk(struct pcb_t *caller, int vmaid, addr_t alignedsz)
 {
-  struct vm_rg_struct * newrg;
+  if (caller == NULL || caller->mm == NULL)
+    return NULL;
+
   /* TODO retrive current vma to obtain newrg, current comment out due to compiler redundant warning*/
   struct vm_area_struct *cur_vma = get_vma_by_num(caller->mm, vmaid);
 
   if (cur_vma == NULL)
     return NULL;
 
-  newrg = malloc(sizeof(struct vm_rg_struct));
+  if (cur_vma->sbrk + alignedsz > cur_vma->vm_end)
+    return NULL;
+
+  struct vm_rg_struct *newrg = malloc(sizeof(struct vm_rg_struct));
+  if (newrg == NULL)
+    return NULL;
 
   /* TODO: update the newrg boundary
    * The new region is planned right at the current break pointer
@@ -94,20 +98,19 @@ struct vm_rg_struct *get_vm_area_node_at_brk(struct pcb_t *caller, int vmaid, ad
  */
 int validate_overlap_vm_area(struct pcb_t *caller, int vmaid, addr_t vmastart, addr_t vmaend)
 {
+  if (caller == NULL || caller->mm == NULL)
+    return -1;
+
   struct vm_area_struct *vma = caller->mm->mmap;
 
   /* TODO validate the planned memory area is not overlapped */
-  if (vmastart >= vmaend)
+  if (vmastart >= vmaend || vma == NULL)
+
+
   {
     return -1;
   }
-
-  if (vma == NULL)
-  {
-    return -1;
-  }
-
-  /* TODO validate the planned memory area is not overlapped */
+    /* TODO validate the planned memory area is not overlapped */
 
   struct vm_area_struct *cur_area = get_vma_by_num(caller->mm, vmaid);
   if (cur_area == NULL)
@@ -138,6 +141,9 @@ int validate_overlap_vm_area(struct pcb_t *caller, int vmaid, addr_t vmastart, a
  */
 int inc_vma_limit(struct pcb_t *caller, int vmaid, addr_t inc_sz)
 {
+  if (caller == NULL || caller->mm == NULL || inc_sz == 0)
+    return -1;
+
   /* TOTO with new address scheme, the size need tobe aligned
    *      the raw inc_sz maybe not fit pagesize
    */
@@ -149,12 +155,20 @@ int inc_vma_limit(struct pcb_t *caller, int vmaid, addr_t inc_sz)
   int incnumpage = inc_amt / PAGING_PAGESZ;
 #endif
 
-  /* TODO: Obtain the new vm area based on vmaid */
-  struct vm_rg_struct *area = get_vm_area_node_at_brk(caller, vmaid, inc_amt);
-  struct vm_area_struct *cur_vma = get_vma_by_num(caller->mm, vmaid);
-  struct vm_rg_struct ret_rg;
+  if (incnumpage <= 0)
+    return -1;
 
-  if (area == NULL || cur_vma == NULL)
+  /* TODO: Obtain the new vm area based on vmaid */
+  struct vm_area_struct *cur_vma = get_vma_by_num(caller->mm, vmaid);
+  if (cur_vma == NULL || cur_vma->sbrk + inc_amt > cur_vma->vm_end)
+    return -1;
+
+  struct vm_rg_struct *area = get_vm_area_node_at_brk(caller, vmaid, inc_amt);
+
+  struct vm_rg_struct ret_rg;
+  ret_rg.vmaid = vmaid;
+
+  if (area == NULL)
     return -1;
 
   /* TODO Validate overlap of obtained region */
@@ -164,19 +178,20 @@ int inc_vma_limit(struct pcb_t *caller, int vmaid, addr_t inc_sz)
     return -1; /*Overlap and failed allocation */
   }
 
-  addr_t old_end = cur_vma->vm_end;
+  addr_t old_sbrk = cur_vma->sbrk;
+
+  /* Raise the break inside [vm_start, vm_end) before mapping pages */
+  cur_vma->sbrk = old_sbrk + inc_amt;
 
   /* The obtained vm area (only) now will be alloc real ram region */
   if (vm_map_ram(caller, area->rg_start, area->rg_end,
-                 old_end, incnumpage, &ret_rg) != 0)
+                 old_sbrk, incnumpage, &ret_rg) != 0)
   {
+    cur_vma->sbrk = old_sbrk;
     free(area);
     return -1; /* Map the memory to MEMRAM failed */
   }
-
-  /* Raise the barrier: the vm area is officially extended */
-  cur_vma->vm_end += inc_amt;
-  cur_vma->sbrk += inc_amt;
+  
 
   free(area);
   return 0;
