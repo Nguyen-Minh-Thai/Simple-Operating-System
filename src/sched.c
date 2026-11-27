@@ -114,7 +114,7 @@ void add_mlq_proc(struct pcb_t * proc) {
 	proc->krnl->mlq_ready_queue = mlq_ready_queue;
 	proc->krnl->running_list = &running_list;
 
-	/* TODO: put running proc to running_list
+	/* TODO: put running proc to running_list 
 	 *       It worth to protect by a mechanism.
 	 * 
 	 */
@@ -188,4 +188,22 @@ void add_proc(struct pcb_t * proc) {
 }
 #endif
 
+void remove_proc(struct pcb_t * proc) {
+	pthread_mutex_lock(&queue_lock);
+	purgequeue(&running_list, proc);
+	pthread_mutex_unlock(&queue_lock);
+}
 
+struct pcb_t * find_running_proc(uint32_t pid) {
+	struct pcb_t * found = NULL;
+	pthread_mutex_lock(&queue_lock);
+	for (int i = 0; i < running_list.size; i++) {
+		if (running_list.proc[i] != NULL &&
+		    running_list.proc[i]->pid == pid) {
+			found = running_list.proc[i];
+			break;
+		}
+	}
+	pthread_mutex_unlock(&queue_lock);
+	return found;
+}

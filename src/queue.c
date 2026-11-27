@@ -12,7 +12,7 @@ int empty(struct queue_t *q)
 void enqueue(struct queue_t *q, struct pcb_t *proc)
 {
         /* TODO: put a new process to queue [q] */
-        if (q == NULL || proc == NULL){
+        if (q == NULL || proc == NULL) {
                 return;
         }
         if (q->size >= MAX_QUEUE_SIZE) {
@@ -29,11 +29,24 @@ struct pcb_t *dequeue(struct queue_t *q)
          * in the queue [q] and remember to remove it from q
          * */
         if (empty(q)) {
-                return NULL;   
+                return NULL;
         }
 
-        struct pcb_t *proc = q->proc[0];
-        for (int i = 0; i < q->size - 1; i++) {
+        int best_idx = 0;
+        for (int i = 1; i < q->size; i++) {
+#ifdef MLQ_SCHED
+                if (q->proc[i]->prio < q->proc[best_idx]->prio) {
+                        best_idx = i;
+                }
+#else
+                if (q->proc[i]->priority < q->proc[best_idx]->priority) {
+                        best_idx = i;
+                }
+#endif
+        }
+
+        struct pcb_t *proc = q->proc[best_idx];
+        for (int i = best_idx; i < q->size - 1; i++) {
                 q->proc[i] = q->proc[i + 1];
         }
         q->proc[q->size - 1] = NULL;
@@ -50,7 +63,7 @@ struct pcb_t *purgequeue(struct queue_t *q, struct pcb_t *proc)
                 return NULL;
         }
         int found_idx = -1;
-        for (int i = 0; i < q->size; ++i){
+        for (int i = 0; i < q->size; ++i) {
                 if (q->proc[i] == proc) {
                         found_idx = i;
                         break;
