@@ -31,9 +31,8 @@ typedef int memory_bank_t;
 // Initialize a memory bank with given size in bytes
 memory_bank_t memory_bank_init(size_t size_bytes);
 
-// Attach an EXTERNAL buffer (i.e. the OS MEMRAM storage) as bank 0 so
-// the DMA engine can address the OS physical memory over the system bus
-memory_bank_t memory_bank_attach(void *buffer, size_t size_bytes);
+// Bind memory bank zero to externally managed physical memory.
+int memory_bank_bind(void *memory, size_t size_bytes);
 
 // Cleanup all memory banks
 void memory_bank_cleanup(void);
@@ -55,6 +54,12 @@ int dpi_bank_write32_legacy(long long offset, int value);
 
 // DPI Callback: Called from RTL when DMA transfer completes
 void dma_done_callback(void);
+uint64_t dma_completion_count(void);
+int dma_irq_is_pending(void);
+void dma_irq_ack(void);
+void dma_irq_notify(void);
+int dma_irq_wait(void);
+void dma_irq_shutdown(void);
 #ifdef __cplusplus
 }
 #endif
