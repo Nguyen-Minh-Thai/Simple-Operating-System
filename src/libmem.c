@@ -18,6 +18,7 @@
 #include "libmem.h"
 #include "dma.h"
 #include "sysbus.h"
+#include "dpi_rtl.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -25,6 +26,292 @@
 
 static pthread_mutex_t mmvm_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t kmm_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t dma_memcpy_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t dma_memcpy_done = PTHREAD_COND_INITIALIZER;
+
+
+struct dma_chunk {
+  uint64_t source;
+  uint64_t destination;
+  uint32_t size;
+  int use_dma;
+};
+
+struct dma_pending_copy {
+  uint32_t pid;
+  uint32_t source_region;
+  uint32_t destination_region;
+  struct memphy_struct *mram;
+  struct dma_chunk *chunks;
+  size_t chunk_count;
+  size_t next_chunk;
+  int result;
+  int started;
+  int complete;
+  struct dma_pending_copy *next;
+};
+
+static struct dma_pending_copy *dma_pending_copies;
+static struct dma_pending_copy *dma_active_copy;
+
+struct kmem_region {
+  uint32_t pid;
+  uint32_t rgid;
+  size_t size;
+  addr_t start;
+  struct kmem_region *next;
+};
+
+static struct kmem_region *kmem_regions;
+
+
+
+int enlist_vm_freerg_list(struct mm_struct *mm, struct vm_rg_struct *rg_elmt);
+
+static int dma_start_chunk_locked(struct dma_pending_copy *pending)
+{
+  if (pending == NULL)
+    return -1;
+
+  while (pending->next_chunk < pending->chunk_count)
+  {
+    struct dma_chunk *chunk = &pending->chunks[pending->next_chunk];
+    if (chunk->use_dma)
+    {
+      if (do_dma_async(NULL, chunk->source, chunk->destination,
+                       chunk->size) != 0)
+        return -1;
+      dma_active_copy = pending;
+      return 0;
+    }
+
+    for (uint32_t i = 0; i < chunk->size; i++)
+    {
+      BYTE value;
+      if (MEMPHY_read(pending->mram, chunk->source + i, &value) != 0 ||
+          MEMPHY_write(pending->mram, chunk->destination + i, value) != 0)
+        return -1;
+    }
+    pending->next_chunk++;
+  }
+
+  pending->complete = 1;
+  return 0;
+}
+
+static void dma_start_next_locked(void)
+{
+  struct dma_pending_copy *pending;
+
+  if (dma_active_copy != NULL)
+    return;
+
+  for (pending = dma_pending_copies; pending != NULL; pending = pending->next)
+  {
+    if (pending->started || pending->complete)
+      continue;
+    pending->started = 1;
+    if (dma_start_chunk_locked(pending) != 0)
+    {
+      pending->result = -1;
+      pending->complete = 1;
+      fprintf(stderr, "DMA could not start a request for PID %u\n",
+              pending->pid);
+      pthread_cond_broadcast(&dma_memcpy_done);
+      continue;
+    }
+    if (pending->complete)
+      pthread_cond_broadcast(&dma_memcpy_done);
+    if (dma_active_copy != NULL)
+      return;
+  }
+}
+
+static int dma_has_pending_locked(uint32_t pid)
+{
+  struct dma_pending_copy *pending;
+
+  for (pending = dma_pending_copies; pending != NULL; pending = pending->next)
+  {
+    if (pending->pid == pid)
+      return 1;
+  }
+  return 0;
+}
+
+static int dma_region_has_pending_locked(uint32_t pid, uint32_t rgid)
+{
+  struct dma_pending_copy *pending;
+
+  for (pending = dma_pending_copies; pending != NULL; pending = pending->next)
+  {
+    if (pending->pid == pid && !pending->complete &&
+        (pending->source_region == rgid ||
+         pending->destination_region == rgid))
+      return 1;
+  }
+  return 0;
+}
+
+static void dma_collect_completed_region_locked(uint32_t pid, uint32_t rgid)
+{
+  struct dma_pending_copy **link = &dma_pending_copies;
+
+  while (*link != NULL)
+  {
+    struct dma_pending_copy *pending = *link;
+    if (pending->pid == pid && pending->complete &&
+        (pending->source_region == rgid ||
+         pending->destination_region == rgid))
+    {
+      *link = pending->next;
+      free(pending->chunks);
+      free(pending);
+    }
+    else
+      link = &pending->next;
+  }
+}
+
+/* Returns with dma_memcpy_lock held; the caller must then take mmvm_lock. */
+static void dma_lock_region(struct pcb_t *caller, uint32_t rgid)
+{
+  pthread_mutex_lock(&dma_memcpy_lock);
+  while (dma_region_has_pending_locked(caller->pid, rgid))
+  {
+    dma_collect_completed_region_locked(caller->pid, rgid);
+    if (dma_region_has_pending_locked(caller->pid, rgid))
+      pthread_cond_wait(&dma_memcpy_done, &dma_memcpy_lock);
+  }
+  dma_collect_completed_region_locked(caller->pid, rgid);
+}
+
+static int dma_has_inflight_locked(void)
+{
+  struct dma_pending_copy *pending;
+
+  for (pending = dma_pending_copies; pending != NULL; pending = pending->next)
+  {
+    if (!pending->complete)
+      return 1;
+  }
+  return 0;
+}
+
+static int dma_collect_completed_locked(uint32_t pid)
+{
+  struct dma_pending_copy **link = &dma_pending_copies;
+  int result = 0;
+
+  while (*link != NULL)
+  {
+    struct dma_pending_copy *pending = *link;
+    if (pending->pid == pid && pending->complete)
+    {
+      if (pending->result != 0)
+        result = -1;
+      *link = pending->next;
+      free(pending->chunks);
+      free(pending);
+    }
+    else
+      link = &pending->next;
+  }
+  return result;
+}
+
+static struct kmem_region *find_kmem_region(uint32_t pid, uint32_t rgid)
+{
+  struct kmem_region *region;
+
+  for (region = kmem_regions; region != NULL; region = region->next)
+  {
+    if (region->pid == pid && region->rgid == rgid)
+      return region;
+  }
+  return NULL;
+}
+
+static void forget_kmem_region(uint32_t pid, uint32_t rgid)
+{
+  struct kmem_region **link;
+
+  pthread_mutex_lock(&kmm_lock);
+  link = &kmem_regions;
+  while (*link != NULL)
+  {
+    struct kmem_region *region = *link;
+    if (region->pid == pid && region->rgid == rgid)
+    {
+      *link = region->next;
+      free(region);
+      break;
+    }
+    link = &region->next;
+  }
+  pthread_mutex_unlock(&kmm_lock);
+}
+
+static int remove_kmem_region(struct pcb_t *caller, uint32_t rgid)
+{
+  struct kmem_region **link = &kmem_regions;
+
+  while (*link != NULL)
+  {
+    struct kmem_region *region = *link;
+    if (region->pid == caller->pid && region->rgid == rgid)
+    {
+      struct vm_area_struct *kernel_vma = get_vma_by_num(caller->mm, 1);
+      struct vm_rg_struct *freed_region;
+      if (kernel_vma == NULL)
+        return -1;
+      freed_region = calloc(1, sizeof(*freed_region));
+      if (freed_region == NULL)
+        return -1;
+      freed_region->vmaid = 1;
+      freed_region->rg_start = region->start;
+      freed_region->rg_end = region->start + region->size;
+      if (enlist_vm_freerg_list(caller->mm, freed_region) != 0)
+      {
+        free(freed_region);
+        return -1;
+      }
+      *link = region->next;
+      free(region);
+      return 0;
+    }
+    link = &region->next;
+  }
+  return -1;
+}
+
+void libkmem_release_process(uint32_t pid)
+{
+  struct kmem_region **link;
+
+  pthread_mutex_lock(&kmm_lock);
+  link = &kmem_regions;
+  while (*link != NULL)
+  {
+    struct kmem_region *region = *link;
+    if (region->pid == pid)
+    {
+      *link = region->next;
+      free(region);
+    }
+    else
+    {
+      link = &region->next;
+    }
+  }
+  pthread_mutex_unlock(&kmm_lock);
+}
+
+/*enlist_vm_freerg_list - add new rg to freerg_list
+ *@mm: memory region
+ *@rg_elmt: new region
+ *
+ */
 
 /* Mode independent paging helpers */
 #ifdef MM64
@@ -279,13 +566,11 @@ static int __kfree_region(struct pcb_t *caller, struct vm_rg_struct *rgnode)
 int __free(struct pcb_t *caller, int vmaid, int rgid)
 {
   (void)vmaid;
-  pthread_mutex_lock(&mmvm_lock);
-
   if (caller == NULL || caller->mm == NULL || rgid < 0 || rgid >= PAGING_MAX_SYMTBL_SZ)
-  {
-    pthread_mutex_unlock(&mmvm_lock);
     return -1;
-  }
+
+  dma_lock_region(caller, (uint32_t)rgid);
+  pthread_mutex_lock(&mmvm_lock);
 
   /* TODO: Manage the collect freed region to freerg_list */
   struct vm_rg_struct *rgnode = get_symrg_byid(caller->mm, rgid);
@@ -293,6 +578,7 @@ int __free(struct pcb_t *caller, int vmaid, int rgid)
   if (rgnode == NULL || (rgnode->rg_start == 0 && rgnode->rg_end == 0))
   {
     pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
   }
 
@@ -302,7 +588,9 @@ int __free(struct pcb_t *caller, int vmaid, int rgid)
   if (IS_KERNEL_ADDR(rgnode->rg_start))
   {
     __kfree_region(caller, rgnode);
+    forget_kmem_region(caller->pid, (uint32_t)rgid);
     pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return 0;
   }
 #endif
@@ -313,6 +601,7 @@ int __free(struct pcb_t *caller, int vmaid, int rgid)
   if (freerg_node == NULL)
   {
     pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
   }
 
@@ -329,6 +618,7 @@ int __free(struct pcb_t *caller, int vmaid, int rgid)
   enlist_vm_freerg_list(caller->mm, freerg_node);
 
   pthread_mutex_unlock(&mmvm_lock);
+  pthread_mutex_unlock(&dma_memcpy_lock);
   return 0;
 }
 
@@ -383,7 +673,6 @@ int libfree(struct pcb_t *proc, uint32_t reg_index)
     printf("libfree failed: PID=%d region=%d\n", proc->pid, reg_index);
     return -1;
   }
-  printf("%s:%d\n", __func__, __LINE__);
 #ifdef IODUMP
   /* TODO dump IO content (if needed) */
   printf("===== PHYSICAL MEMORY AFTER DEALLOCATION =====\n");
@@ -402,7 +691,7 @@ int libfree(struct pcb_t *proc, uint32_t reg_index)
  *@caller: caller
  *
  */
-int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
+int pg_getpage(struct mm_struct *mm, addr_t pgn, int *fpn, struct pcb_t *caller)
 {
 
   uint64_t pte = pte_get_entry(mm, pgn, caller);
@@ -468,6 +757,44 @@ int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
   return 0;
 }
 
+static int dma_translate_address(struct pcb_t *caller, addr_t virtual_address,
+                                 uint64_t *physical_address)
+{
+  struct mm_struct *address_mm;
+  addr_t page_number;
+  addr_t frame_address;
+  int frame_number;
+
+  if (caller == NULL || caller->krnl == NULL ||
+      caller->krnl->mram == NULL || physical_address == NULL)
+    return -1;
+
+  if (IS_KERNEL_ADDR(virtual_address))
+  {
+    address_mm = caller->krnl->mm;
+    if (address_mm == NULL)
+      return -1;
+  }
+  else
+  {
+    address_mm = caller->mm;
+    if (address_mm == NULL)
+      return -1;
+  }
+
+  page_number = virtual_address / PAGING64_PAGESZ;
+  if (pg_getpage(address_mm, page_number, &frame_number, caller) != 0 ||
+      frame_number < 0)
+    return -1;
+
+  frame_address = (addr_t)frame_number * PAGING64_PAGESZ +
+                  (virtual_address & (PAGING64_PAGESZ - 1));
+  if (frame_address >= (addr_t)caller->krnl->mram->maxsz)
+    return -1;
+  *physical_address = (uint64_t)frame_address;
+  return 0;
+}
+
 /*pg_getval - read value at given offset
  *@mm: memory region
  *@addr: virtual address to acess
@@ -476,7 +803,7 @@ int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
  */
 int pg_getval(struct mm_struct *mm, addr_t addr, BYTE *data, struct pcb_t *caller)
 {
-  int pgn = OS_PGN(addr);
+  addr_t pgn = OS_PGN(addr);
   int off = OS_OFFST(addr);
   int fpn;
 
@@ -512,7 +839,7 @@ int pg_getval(struct mm_struct *mm, addr_t addr, BYTE *data, struct pcb_t *calle
  */
 int pg_setval(struct mm_struct *mm, addr_t addr, BYTE value, struct pcb_t *caller)
 {
-  int pgn = OS_PGN(addr);
+  addr_t pgn = OS_PGN(addr);
   int off = OS_OFFST(addr);
   int fpn;
 
@@ -548,6 +875,11 @@ int pg_setval(struct mm_struct *mm, addr_t addr, BYTE value, struct pcb_t *calle
  */
 int __read(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, BYTE *data)
 {
+  if (caller == NULL || caller->mm == NULL ||
+      rgid < 0 || rgid >= PAGING_MAX_SYMTBL_SZ || data == NULL)
+    return -1;
+
+  dma_lock_region(caller, (uint32_t)rgid);
   pthread_mutex_lock(&mmvm_lock);
   struct vm_rg_struct *currg = get_symrg_byid(caller->mm, rgid);
   struct vm_area_struct *cur_vma = macos_get_target_vma(caller->mm, vmaid);
@@ -559,6 +891,7 @@ int __read(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, BYTE *data)
     printf("Invalid memory operation: PID=%d read on unallocated region %d\n",
            caller->pid, rgid);
     pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
   }
 
@@ -567,6 +900,7 @@ int __read(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, BYTE *data)
     printf("Invalid memory operation: PID=%d out-of-bounds offset=" FORMAT_ADDR " on region %d\n",
           caller->pid, offset, rgid);
     pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
   }
 
@@ -577,6 +911,7 @@ int __read(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, BYTE *data)
     printf("Invalid memory operation: PID=%d userspace READ on kernelspace address\n",
            caller->pid);
     pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
   }
 #endif
@@ -584,6 +919,7 @@ int __read(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, BYTE *data)
   int val = pg_getval(caller->mm, currg->rg_start + offset, data, caller);
 
   pthread_mutex_unlock(&mmvm_lock);
+  pthread_mutex_unlock(&dma_memcpy_lock);
   return val;
 }
 
@@ -595,7 +931,6 @@ int libread(
     uint32_t* destination)
 {
   BYTE data;
-  printf("%s:%d\n", __func__, __LINE__);
   int vmaid = 0;
   if (proc != NULL && proc->mm != NULL && source < PAGING_MAX_SYMTBL_SZ)
     vmaid = macos_find_vmaid_by_addr(proc->mm, proc->mm->symrgtbl[source].rg_start);
@@ -605,7 +940,8 @@ int libread(
   if (val != 0)
     return val;
 
-  *destination = (uint32_t)(unsigned char)data;
+  if (destination != NULL)
+    *destination = (uint32_t)(unsigned char)data;
 #ifdef IODUMP
   /* TODO dump IO content (if needed) */
   printf("===== PHYSICAL MEMORY AFTER READING =====\n");
@@ -629,6 +965,11 @@ int libread(
  */
 int __write(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, BYTE value)
 {
+  if (caller == NULL || caller->mm == NULL ||
+      rgid < 0 || rgid >= PAGING_MAX_SYMTBL_SZ)
+    return -1;
+
+  dma_lock_region(caller, (uint32_t)rgid);
   pthread_mutex_lock(&mmvm_lock);
   struct vm_rg_struct *currg = get_symrg_byid(caller->mm, rgid);
   struct vm_area_struct *cur_vma = macos_get_target_vma(caller->mm, vmaid);
@@ -639,6 +980,7 @@ int __write(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, BYTE value
     printf("Invalid memory operation: PID=%d write on unallocated region %d\n",
            caller->pid, rgid);
     pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
   }
 
@@ -647,6 +989,7 @@ int __write(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, BYTE value
     printf("Invalid memory operation: PID=%d out-of-bounds offset=" FORMAT_ADDR " on region %d\n",
            caller->pid, offset, rgid);
     pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
   }
 
@@ -657,6 +1000,7 @@ int __write(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, BYTE value
     printf("Invalid memory operation: PID=%d userspace WRITE on kernelspace address\n",
            caller->pid);
     pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
   }
 #endif
@@ -664,6 +1008,7 @@ int __write(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, BYTE value
   int val = pg_setval(caller->mm, currg->rg_start + offset, value, caller);
 
   pthread_mutex_unlock(&mmvm_lock);
+  pthread_mutex_unlock(&dma_memcpy_lock);
   return val;
 }
 
@@ -704,22 +1049,43 @@ int libwrite(
  */
 int libkmem_malloc(struct pcb_t *caller, uint32_t size, uint32_t reg_index)
 {
-  /*
-   * TODO: provide OS level management
-   *       and forward the request to helper
-   */
+  struct kmem_region *region;
   addr_t addr = 0;
+
+  if (caller == NULL || caller->mm == NULL || caller->krnl == NULL ||
+      size == 0 || reg_index >= PAGING_MAX_SYMTBL_SZ)
+    return -1;
+
+  pthread_mutex_lock(&kmm_lock);
+  if (find_kmem_region(caller->pid, reg_index) != NULL)
+  {
+    pthread_mutex_unlock(&kmm_lock);
+    return -1;
+  }
+  pthread_mutex_unlock(&kmm_lock);
+
+  region = calloc(1, sizeof(*region));
+  if (region == NULL)
+    return -1;
+
   addr_t val = __kmalloc(caller, 0, reg_index, size, &addr);
 
-  /*
-   * TODO: provide OS kmem allocation validation
-   */
   if (val == 0 || addr == 0)
   {
+    free(region);
     printf("libkmem_malloc failed: PID=%d region=%d size=%u\n",
            caller->pid, reg_index, size);
     return -1;
   }
+
+  region->pid = caller->pid;
+  region->rgid = reg_index;
+  region->size = size;
+  region->start = addr;
+  pthread_mutex_lock(&kmm_lock);
+  region->next = kmem_regions;
+  kmem_regions = region;
+  pthread_mutex_unlock(&kmm_lock);
 
   caller->regs[reg_index] = addr;
 
@@ -806,177 +1172,373 @@ addr_t __kmalloc(struct pcb_t *caller, int vmaid, int rgid, addr_t size, addr_t 
 
 
 
-/*libmem_dma_memcpy - DMA memcpy
- *@caller: caller
- *@src: source region
- *@dst: destination region
- *@offset: memory offset
- *@size: copied data size
- */
+/* Collect completed requests for a process; the IRQ handler advances DMA. */
+int libmem_dma_poll(struct pcb_t *caller)
+{
+  int result;
+
+  if (caller == NULL)
+    return -1;
+
+  pthread_mutex_lock(&dma_memcpy_lock);
+  result = dma_collect_completed_locked(caller->pid);
+  pthread_mutex_unlock(&dma_memcpy_lock);
+  return result;
+}
+
+int libmem_dma_wait(struct pcb_t *caller)
+{
+  int result = 0;
+
+  if (caller == NULL)
+    return -1;
+
+  pthread_mutex_lock(&dma_memcpy_lock);
+  while (dma_has_pending_locked(caller->pid))
+  {
+    if (dma_collect_completed_locked(caller->pid) != 0)
+      result = -1;
+    if (dma_has_pending_locked(caller->pid))
+      pthread_cond_wait(&dma_memcpy_done, &dma_memcpy_lock);
+  }
+  pthread_mutex_unlock(&dma_memcpy_lock);
+  return result;
+}
+
+void libmem_dma_handle_interrupt(void)
+{
+  struct dma_pending_copy *active;
+  int dma_status;
+  int irq_pending;
+
+  pthread_mutex_lock(&dma_memcpy_lock);
+  active = dma_active_copy;
+  dma_status = rtl_dma_poll();
+  irq_pending = rtl_dma_is_irq_pending();
+  rtl_dma_ack_irq();
+
+  if (active != NULL)
+  {
+    dma_active_copy = NULL;
+    if (dma_status != 1 || !irq_pending)
+    {
+      active->result = -1;
+      active->complete = 1;
+      fprintf(stderr, "DMA interrupt reported a failed transfer for PID %u\n",
+              active->pid);
+    }
+    else
+    {
+      active->next_chunk++;
+      if (active->next_chunk == active->chunk_count)
+        active->complete = 1;
+      else if (dma_start_chunk_locked(active) != 0)
+      {
+        active->result = -1;
+        active->complete = 1;
+        fprintf(stderr, "DMA could not start the next transfer for PID %u\n",
+                active->pid);
+      }
+    }
+  }
+
+  dma_start_next_locked();
+  pthread_cond_broadcast(&dma_memcpy_done);
+  pthread_mutex_unlock(&dma_memcpy_lock);
+}
+
+void libmem_dma_wait_all(void)
+{
+  struct dma_pending_copy *pending;
+
+  pthread_mutex_lock(&dma_memcpy_lock);
+  while (dma_active_copy != NULL || dma_has_inflight_locked())
+    pthread_cond_wait(&dma_memcpy_done, &dma_memcpy_lock);
+
+  pending = dma_pending_copies;
+  dma_pending_copies = NULL;
+  while (pending != NULL)
+  {
+    struct dma_pending_copy *next = pending->next;
+    free(pending->chunks);
+    free(pending);
+    pending = next;
+  }
+  pthread_mutex_unlock(&dma_memcpy_lock);
+}
+
 int libmem_dma_memcpy(struct pcb_t *caller, uint32_t src, uint32_t dst, uint32_t offset, uint32_t size)
 {
-  /* TODO: provide DMA mempy */
-  struct vm_rg_struct *rs = get_symrg_byid(caller->mm, src);
-  struct vm_rg_struct *rd = get_symrg_byid(caller->mm, dst);
+  struct vm_rg_struct source_region;
+  struct vm_rg_struct *current_source;
+  struct vm_rg_struct *current_destination;
+  struct memphy_struct *mram;
+  struct kmem_region *dst_region;
+  addr_t destination_start;
+  addr_t source_address;
+  addr_t destination_address;
+  uint64_t copied = 0;
+  struct dma_chunk *chunks = NULL;
+  size_t chunk_count = 0;
+  size_t chunk_capacity = 0;
+  struct dma_pending_copy *pending;
+  int result = -1;
 
-  if (rs == NULL || rd == NULL ||
-      (rs->rg_start == 0 && rs->rg_end == 0) ||
-      (rd->rg_start == 0 && rd->rg_end == 0))
+  if (caller == NULL || caller->mm == NULL || caller->krnl == NULL ||
+      caller->krnl->mram == NULL || size == 0 ||
+      src >= PAGING_MAX_SYMTBL_SZ || dst >= PAGING_MAX_SYMTBL_SZ)
+    return -1;
+  mram = caller->krnl->mram;
+
+  pthread_mutex_lock(&mmvm_lock);
   {
-    printf("dma_memcpy failed: PID=%d invalid region src=%d dst=%d\n",
-           caller->pid, src, dst);
+    struct vm_rg_struct *src_region = get_symrg_byid(caller->mm, (int)src);
+    if (src_region == NULL || src_region->rg_end <= src_region->rg_start ||
+        offset > src_region->rg_end - src_region->rg_start ||
+        size > src_region->rg_end - src_region->rg_start - offset)
+    {
+      pthread_mutex_unlock(&mmvm_lock);
+      return -1;
+    }
+    source_region = *src_region;
+  }
+  pthread_mutex_unlock(&mmvm_lock);
+
+  pthread_mutex_lock(&kmm_lock);
+  dst_region = find_kmem_region(caller->pid, dst);
+  if (dst_region == NULL || offset > dst_region->size ||
+      size > dst_region->size - offset)
+  {
+    pthread_mutex_unlock(&kmm_lock);
+    return -1;
+  }
+  destination_start = dst_region->start;
+  pthread_mutex_unlock(&kmm_lock);
+
+  pthread_mutex_lock(&dma_memcpy_lock);
+  pthread_mutex_lock(&mmvm_lock);
+  current_source = get_symrg_byid(caller->mm, (int)src);
+  if (current_source == NULL ||
+      current_source->rg_start != source_region.rg_start ||
+      current_source->rg_end != source_region.rg_end ||
+      current_source->rg_end <= current_source->rg_start ||
+      offset > current_source->rg_end - current_source->rg_start ||
+      size > current_source->rg_end - current_source->rg_start - offset)
+  {
+    pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
   }
 
-  /*
-   *  TODO: provide asynchronous dma memcpy
-   *        handling the dma_done_callback
-   *
-   * The CPU does not copy the data itself. It translates the virtual
-   * addresses to BUS (physical) addresses through the MMU page tables
-   * and posts a transfer descriptor to the co-processor mailbox. The
-   * DMA engine (co_processor thread, see os.c) moves the bytes over
-   * the system bus and raises dma_done_callback() as the completion
-   * interrupt.
-   */
-  uint32_t copied = 0;
+  pthread_mutex_lock(&kmm_lock);
+  dst_region = find_kmem_region(caller->pid, dst);
+  current_destination = get_symrg_byid(caller->mm, (int)dst);
+  if (dst_region == NULL || current_destination == NULL ||
+      current_destination->rg_start != dst_region->start ||
+      current_destination->rg_end <= current_destination->rg_start ||
+      offset > dst_region->size || size > dst_region->size - offset)
+  {
+    pthread_mutex_unlock(&kmm_lock);
+    pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
+    free(chunks);
+    return -1;
+  }
+  if (offset > current_destination->rg_end - current_destination->rg_start ||
+      size > current_destination->rg_end - current_destination->rg_start - offset)
+  {
+    pthread_mutex_unlock(&kmm_lock);
+    pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
+    free(chunks);
+    return -1;
+  }
+  destination_start = dst_region->start;
+  pthread_mutex_unlock(&kmm_lock);
+
+  if (source_region.rg_start > (addr_t)-1 - offset ||
+      destination_start > (addr_t)-1 - offset)
+  {
+    pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
+    free(chunks);
+    return -1;
+  }
+  source_address = source_region.rg_start + offset;
+  destination_address = destination_start + offset;
+
   while (copied < size)
   {
-    addr_t svaddr = rs->rg_start + offset + copied;
-    addr_t dvaddr = rd->rg_start + offset + copied;
-    addr_t sphys, dphys;
+    addr_t source_virtual = source_address + copied;
+    addr_t destination_virtual = destination_address + copied;
+    uint64_t source_physical;
+    uint64_t destination_physical;
+    uint64_t chunk_size = size - copied;
+    uint64_t source_page_left =
+        PAGING64_PAGESZ - (source_virtual & (PAGING64_PAGESZ - 1));
+    uint64_t destination_page_left =
+        PAGING64_PAGESZ - (destination_virtual & (PAGING64_PAGESZ - 1));
+    uint64_t dma_size;
+    uint64_t remainder;
+    size_t piece;
 
-    if (virt_to_phys(caller, svaddr, &sphys) != 0 ||
-        virt_to_phys(caller, dvaddr, &dphys) != 0)
+    if (chunk_size > source_page_left)
+      chunk_size = source_page_left;
+    if (chunk_size > destination_page_left)
+      chunk_size = destination_page_left;
+    if (dma_translate_address(caller, source_virtual, &source_physical) != 0 ||
+        dma_translate_address(caller, destination_virtual,
+                              &destination_physical) != 0 ||
+        source_physical > UINT64_MAX - chunk_size ||
+        destination_physical > UINT64_MAX - chunk_size ||
+        source_physical + chunk_size > (uint64_t)mram->maxsz ||
+        destination_physical + chunk_size >
+            (uint64_t)mram->maxsz)
     {
-      printf("dma_memcpy failed: PID=%d cannot translate bus address\n",
-             caller->pid);
+      pthread_mutex_unlock(&mmvm_lock);
+      pthread_mutex_unlock(&dma_memcpy_lock);
+      free(chunks);
       return -1;
     }
 
-    /* A DMA burst must stay inside one frame on both sides */
-    uint32_t left = size - copied;
-    uint32_t smax = OS_PAGESZ - OS_OFFST(svaddr);
-    uint32_t dmax = OS_PAGESZ - OS_OFFST(dvaddr);
-    uint32_t chunk = left < smax ? left : smax;
-    chunk = chunk < dmax ? chunk : dmax;
-
-    if (dma_submit_and_wait(caller, sphys, dphys, chunk) != 0)
+    dma_size = chunk_size & ~UINT64_C(3);
+    remainder = chunk_size - dma_size;
+    for (piece = 0; piece < 2; piece++)
     {
-      printf("dma_memcpy failed: PID=%d DMA engine error\n", caller->pid);
-      return -1;
-    }
+      uint64_t piece_size = piece == 0 ? dma_size : remainder;
+      struct dma_chunk *new_chunks;
+      if (piece_size == 0)
+        continue;
+      if (chunk_count == chunk_capacity)
+      {
+        size_t new_capacity = chunk_capacity == 0 ? 8 : chunk_capacity * 2;
+        if (new_capacity < chunk_capacity ||
+            new_capacity > SIZE_MAX / sizeof(*chunks))
+        {
+          pthread_mutex_unlock(&mmvm_lock);
+          pthread_mutex_unlock(&dma_memcpy_lock);
+          free(chunks);
+          return -1;
+        }
+        new_chunks = realloc(chunks, new_capacity * sizeof(*chunks));
+        if (new_chunks == NULL)
+        {
+          pthread_mutex_unlock(&mmvm_lock);
+          pthread_mutex_unlock(&dma_memcpy_lock);
+          free(chunks);
+          return -1;
+        }
+        chunks = new_chunks;
+        chunk_capacity = new_capacity;
+      }
 
-    copied += chunk;
+      chunks[chunk_count].source =
+          source_physical + (piece == 0 ? 0 : dma_size);
+      chunks[chunk_count].destination =
+          destination_physical + (piece == 0 ? 0 : dma_size);
+      chunks[chunk_count].size = (uint32_t)piece_size;
+      chunks[chunk_count].use_dma = piece == 0;
+      chunk_count++;
+    }
+    copied += chunk_size;
   }
 
-#ifdef IODUMP
-  printf("===== DMA MEMCPY DONE =====\n");
-  printf("PID=%d src_region=%d dst_region=%d offset=%u size=%u\n",
-         caller->pid, src, dst, offset, size);
-#endif
+  pthread_mutex_unlock(&mmvm_lock);
+  if (!memory_bank_is_available() &&
+      memory_bank_bind((void *)mram->storage, (size_t)mram->maxsz) != 0)
+  {
+    pthread_mutex_unlock(&dma_memcpy_lock);
+    free(chunks);
+    return -1;
+  }
+  pending = calloc(1, sizeof(*pending));
+  if (pending == NULL)
+  {
+    pthread_mutex_unlock(&dma_memcpy_lock);
+    free(chunks);
+    return -1;
+  }
+  pending->pid = caller->pid;
+  pending->source_region = src;
+  pending->destination_region = dst;
+  pending->mram = mram;
+  pending->chunks = chunks;
+  pending->chunk_count = chunk_count;
 
-  return 0;
+  if (dma_pending_copies == NULL)
+    dma_pending_copies = pending;
+  else
+  {
+    struct dma_pending_copy *tail = dma_pending_copies;
+    while (tail->next != NULL)
+      tail = tail->next;
+    tail->next = pending;
+  }
+
+  dma_start_next_locked();
+  if (pending->complete && pending->result != 0)
+  {
+    struct dma_pending_copy **link = &dma_pending_copies;
+    while (*link != pending)
+      link = &(*link)->next;
+    *link = pending->next;
+    free(pending->chunks);
+    free(pending);
+  }
+  else
+    result = 0;
+  pthread_mutex_unlock(&dma_memcpy_lock);
+  return result;
 }
 
 
 int libkmem_copy_from_user(struct pcb_t *caller, uint32_t source, uint32_t destination, uint32_t offset, uint32_t size)
 {
-  /* TODO: provide OS level management kmem
-   */
-  /*
-   * TODO: Map kernel address range
-   */
   uint32_t i;
   BYTE data;
 
+  if (caller == NULL || size == 0)
+    return -1;
+  if (libmem_dma_wait(caller) != 0)
+  {
+    fprintf(stderr, "DMA failed before copying from user memory for PID %u\n",
+            caller->pid);
+    return -1;
+  }
   for (i = 0; i < size; i++)
   {
-    if (__read_user_mem(caller, 0, source, offset + i, &data) != 0)
-    {
-      printf("copy_from_user failed: PID=%d invalid user region %d\n",
-             caller->pid, source);
+    if (__read_user_mem(caller, 0, (int)source, (addr_t)offset + i, &data) != 0 ||
+        __write_kernel_mem(caller, 1, (int)destination,
+                           (addr_t)offset + i, data) != 0)
       return -1;
-    }
-    if (__write_kernel_mem(caller, 0, destination, offset + i, data) != 0)
-    {
-      printf("copy_from_user failed: PID=%d invalid kernel region %d\n",
-             caller->pid, destination);
-      return -1;
-    }
   }
-
-#ifdef IODUMP
-  printf("===== COPY_FROM_USER DONE =====\n");
-  printf("PID=%d user_region=%d -> kernel_region=%d offset=%u size=%u\n",
-         caller->pid, source, destination, offset, size);
-#endif
-
   return 0;
 }
 
 int libkmem_copy_to_user(struct pcb_t *caller, uint32_t source, uint32_t destination, uint32_t offset, uint32_t size)
 {
-  /* TODO: provide OS level management kmem
-   */
-  /*
-   * TODO: Map kernel address range
-   */
   uint32_t i;
   BYTE data;
 
+  if (caller == NULL || size == 0)
+    return -1;
+  if (libmem_dma_wait(caller) != 0)
+  {
+    fprintf(stderr, "DMA failed before copying to user memory for PID %u\n",
+            caller->pid);
+    return -1;
+  }
   for (i = 0; i < size; i++)
   {
-    if (__read_kernel_mem(caller, 0, source, offset + i, &data) != 0)
-    {
-      printf("copy_to_user failed: PID=%d invalid kernel region %d\n",
-             caller->pid, source);
+    if (__read_kernel_mem(caller, 1, (int)source,
+                          (addr_t)offset + i, &data) != 0 ||
+        __write_user_mem(caller, 0, (int)destination, (addr_t)offset + i,
+                         data) != 0)
       return -1;
-    }
-    if (__write_user_mem(caller, 0, destination, offset + i, data) != 0)
-    {
-      printf("copy_to_user failed: PID=%d invalid user region %d\n",
-             caller->pid, destination);
-      return -1;
-    }
   }
-
-#ifdef IODUMP
-  printf("===== COPY_TO_USER DONE =====\n");
-  printf("PID=%d kernel_region=%d -> user_region=%d offset=%u size=%u\n",
-         caller->pid, source, destination, offset, size);
-#endif
-
   return 0;
 }
 
-
-/* virt_to_phys - translate a virtual address to the physical (bus) address
- *@caller: caller
- *@vaddr: virtual address (userspace or kernelspace)
- *@paddr: returned physical address
- *
- * CPU access passes through the MMU: user addresses walk the process
- * multi-level page table, kernel addresses walk the kernel table.
- */
-int virt_to_phys(struct pcb_t *caller, addr_t vaddr, addr_t *paddr)
-{
-#ifdef MM64
-  if (IS_KERNEL_ADDR(vaddr))
-  {
-    addr_t pte = pte_get_entry(caller->krnl->mm, OS_PGN(vaddr), caller);
-    if (!PAGING_PAGE_PRESENT(pte))
-      return -1;
-    *paddr = (addr_t)PAGING_FPN(pte) * OS_PAGESZ + OS_OFFST(vaddr);
-    return 0;
-  }
-#endif
-  int fpn;
-  if (pg_getpage(caller->mm, OS_PGN(vaddr), &fpn, caller) != 0)
-    return -1;
-  *paddr = (addr_t)fpn * OS_PAGESZ + OS_OFFST(vaddr);
-  return 0;
-}
 
 /*__read_kernel_mem - read value in kernel region memory
  *@caller: caller
@@ -990,6 +1552,12 @@ int __read_kernel_mem(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, 
   /* TODO: provide OS memory operator for kernel memory region */
   (void)vmaid;
 #ifdef MM64
+  if (caller == NULL || caller->mm == NULL || caller->krnl == NULL ||
+      rgid < 0 || rgid >= PAGING_MAX_SYMTBL_SZ || data == NULL)
+    return -1;
+
+  dma_lock_region(caller, (uint32_t)rgid);
+  pthread_mutex_lock(&mmvm_lock);
   pthread_mutex_lock(&kmm_lock);
   struct vm_rg_struct *currg = get_symrg_byid(caller->mm, rgid);
 
@@ -998,6 +1566,8 @@ int __read_kernel_mem(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, 
       !IS_KERNEL_ADDR(currg->rg_start))
   {
     pthread_mutex_unlock(&kmm_lock);
+    pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
   }
 
@@ -1007,14 +1577,18 @@ int __read_kernel_mem(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, 
   if (!PAGING_PAGE_PRESENT(pte))
   {
     pthread_mutex_unlock(&kmm_lock);
+    pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
   }
 
   addr_t phyaddr = (addr_t)PAGING_FPN(pte) * OS_PAGESZ + OS_OFFST(kaddr);
-  MEMPHY_read(caller->krnl->mram, phyaddr, data);
+  int result = MEMPHY_read(caller->krnl->mram, phyaddr, data);
 
   pthread_mutex_unlock(&kmm_lock);
-  return 0;
+  pthread_mutex_unlock(&mmvm_lock);
+  pthread_mutex_unlock(&dma_memcpy_lock);
+  return result;
 #else
   return -1;
 #endif
@@ -1032,6 +1606,12 @@ int __write_kernel_mem(struct pcb_t *caller, int vmaid, int rgid, addr_t offset,
   /* TODO: provide OS memory operator for kernel memory region */
   (void)vmaid;
 #ifdef MM64
+  if (caller == NULL || caller->mm == NULL || caller->krnl == NULL ||
+      rgid < 0 || rgid >= PAGING_MAX_SYMTBL_SZ)
+    return -1;
+
+  dma_lock_region(caller, (uint32_t)rgid);
+  pthread_mutex_lock(&mmvm_lock);
   pthread_mutex_lock(&kmm_lock);
   struct vm_rg_struct *currg = get_symrg_byid(caller->mm, rgid);
 
@@ -1040,6 +1620,8 @@ int __write_kernel_mem(struct pcb_t *caller, int vmaid, int rgid, addr_t offset,
       !IS_KERNEL_ADDR(currg->rg_start))
   {
     pthread_mutex_unlock(&kmm_lock);
+    pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
   }
 
@@ -1049,14 +1631,18 @@ int __write_kernel_mem(struct pcb_t *caller, int vmaid, int rgid, addr_t offset,
   if (!PAGING_PAGE_PRESENT(pte))
   {
     pthread_mutex_unlock(&kmm_lock);
+    pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
   }
 
   addr_t phyaddr = (addr_t)PAGING_FPN(pte) * OS_PAGESZ + OS_OFFST(kaddr);
-  MEMPHY_write(caller->krnl->mram, phyaddr, value);
+  int result = MEMPHY_write(caller->krnl->mram, phyaddr, value);
 
   pthread_mutex_unlock(&kmm_lock);
-  return 0;
+  pthread_mutex_unlock(&mmvm_lock);
+  pthread_mutex_unlock(&dma_memcpy_lock);
+  return result;
 #else
   return -1;
 #endif
@@ -1073,18 +1659,34 @@ int __read_user_mem(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, BY
 {
   /* TODO: provide OS level management user memory access */
   (void)vmaid;
-  struct vm_rg_struct *currg = get_symrg_byid(caller->mm, rgid);
+  if (caller == NULL || caller->mm == NULL ||
+      rgid < 0 || rgid >= PAGING_MAX_SYMTBL_SZ || data == NULL)
+    return -1;
 
+  dma_lock_region(caller, (uint32_t)rgid);
+  pthread_mutex_lock(&mmvm_lock);
+  struct vm_rg_struct *currg = get_symrg_byid(caller->mm, rgid);
   if (currg == NULL ||
       (currg->rg_start == 0 && currg->rg_end == 0))
+  {
+    pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
+  }
 
 #ifdef MM64
   if (IS_KERNEL_ADDR(currg->rg_start))
+  {
+    pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1; /* not a userspace region */
+  }
 #endif
 
-  return pg_getval(caller->mm, currg->rg_start + offset, data, caller);
+  int result = pg_getval(caller->mm, currg->rg_start + offset, data, caller);
+  pthread_mutex_unlock(&mmvm_lock);
+  pthread_mutex_unlock(&dma_memcpy_lock);
+  return result;
 }
 
 
@@ -1099,18 +1701,34 @@ int __write_user_mem(struct pcb_t *caller, int vmaid, int rgid, addr_t offset, B
 {
   /* TODO: provide OS level management user memory access */
   (void)vmaid;
-  struct vm_rg_struct *currg = get_symrg_byid(caller->mm, rgid);
+  if (caller == NULL || caller->mm == NULL ||
+      rgid < 0 || rgid >= PAGING_MAX_SYMTBL_SZ)
+    return -1;
 
+  dma_lock_region(caller, (uint32_t)rgid);
+  pthread_mutex_lock(&mmvm_lock);
+  struct vm_rg_struct *currg = get_symrg_byid(caller->mm, rgid);
   if (currg == NULL ||
       (currg->rg_start == 0 && currg->rg_end == 0))
+  {
+    pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1;
+  }
 
 #ifdef MM64
   if (IS_KERNEL_ADDR(currg->rg_start))
+  {
+    pthread_mutex_unlock(&mmvm_lock);
+    pthread_mutex_unlock(&dma_memcpy_lock);
     return -1; /* not a userspace region */
+  }
 #endif
 
-  return pg_setval(caller->mm, currg->rg_start + offset, value, caller);
+  int result = pg_setval(caller->mm, currg->rg_start + offset, value, caller);
+  pthread_mutex_unlock(&mmvm_lock);
+  pthread_mutex_unlock(&dma_memcpy_lock);
+  return result;
 }
 
 
@@ -1263,105 +1881,6 @@ int get_free_vmrg_area(struct pcb_t *caller, int vmaid, int size, struct vm_rg_s
     return -1;
 
   return 0;
-}
-
-/* ============================================================
- * Asynchronous DMA mailbox: CPU <-> co-processor interaction
- * ============================================================
- * The CPU thread posts a transfer descriptor into a single-slot
- * mailbox and blocks on a condition variable. The co-processor
- * thread (co_processor() in os.c running dma_worker_loop()) picks
- * the descriptor up, drives the DMA engine (RTL or software
- * prototype), raises the completion interrupt dma_done_callback()
- * and finally wakes the CPU up. This models interrupt-driven I/O
- * (Fig.8 of the assignment).
- */
-
-struct dma_request_t {
-  struct pcb_t *caller;
-  uint64_t src;
-  uint64_t dst;
-  uint64_t len;
-  int done;
-  int result;
-};
-
-static pthread_mutex_t dma_mb_lock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t dma_mb_newreq = PTHREAD_COND_INITIALIZER;
-static pthread_cond_t dma_mb_done = PTHREAD_COND_INITIALIZER;
-static struct dma_request_t *dma_mailbox = NULL;
-
-int dma_submit_and_wait(struct pcb_t *caller, uint64_t src_phys,
-                        uint64_t dst_phys, uint64_t length)
-{
-  struct dma_request_t req;
-
-  req.caller = caller;
-  req.src = src_phys;
-  req.dst = dst_phys;
-  req.len = length;
-  req.done = 0;
-  req.result = -1;
-
-  pthread_mutex_lock(&dma_mb_lock);
-
-  /* Wait for the mailbox slot to be free */
-  while (dma_mailbox != NULL)
-    pthread_cond_wait(&dma_mb_done, &dma_mb_lock);
-
-  /* Post the descriptor and ring the co-processor */
-  dma_mailbox = &req;
-  pthread_cond_signal(&dma_mb_newreq);
-
-  /* The CPU now sleeps until the completion interrupt */
-  while (!req.done)
-    pthread_cond_wait(&dma_mb_done, &dma_mb_lock);
-
-  pthread_mutex_unlock(&dma_mb_lock);
-
-  return req.result;
-}
-
-void dma_worker_loop(void)
-{
-  for (;;)
-  {
-    struct dma_request_t *req;
-
-    pthread_mutex_lock(&dma_mb_lock);
-    while (dma_mailbox == NULL)
-      pthread_cond_wait(&dma_mb_newreq, &dma_mb_lock);
-    req = dma_mailbox;
-    pthread_mutex_unlock(&dma_mb_lock);
-
-    /* Make the OS physical RAM visible to the DMA engine over the
-     * system bus (BUS addressing) at the first served request */
-    if (!memory_bank_is_available() && req->caller != NULL &&
-        req->caller->krnl != NULL && req->caller->krnl->mram != NULL)
-    {
-      memory_bank_attach((void *)req->caller->krnl->mram->storage,
-                         (size_t)req->caller->krnl->mram->maxsz);
-    }
-
-    /* Drive the DMA engine */
-    int rc = do_dma(req->caller, req->src, req->dst, req->len);
-
-    /* Completion interrupt (IRQ line of the DMA module).
-     * The real RTL chip raises dma_done_callback() itself through its
-     * DPI import when ch_done goes high, so the OS must not raise it a
-     * second time. Only the software prototype (DMA_SW_FALLBACK) has no
-     * IRQ line of its own; there the co-processor raises it here. */
-#ifdef DMA_SW_FALLBACK
-    dma_done_callback();
-#endif
-
-    pthread_mutex_lock(&dma_mb_lock);
-    req->result = rc;
-    req->done = 1;
-    dma_mailbox = NULL;
-    pthread_cond_broadcast(&dma_mb_done);
-    pthread_mutex_unlock(&dma_mb_lock);
-  }
 }
 
 // #endif
