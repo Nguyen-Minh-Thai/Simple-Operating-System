@@ -13,6 +13,7 @@
 #include "mm.h"
 #include "syscall.h"
 #include "libmem.h"
+#include <stdio.h>
 
 int calc(struct pcb_t *proc)
 {
@@ -38,7 +39,7 @@ int free_data(struct pcb_t *proc, uint32_t reg_index)
 	return free_mem(proc->regs[reg_index], proc);
 }
 
-int read(
+static int cpu_read(
 	struct pcb_t *proc, // Process executing the instruction
 	uint32_t source,	// Index of source register
 	uint32_t offset,	// Source address = [source] + [offset]
@@ -57,7 +58,7 @@ int read(
 	}
 }
 
-int write(
+static int cpu_write(
 	struct pcb_t *proc,	// Process executing the instruction
 	BYTE data,		// Data to be wrttien into memory
 	uint32_t destination, // Index of destination register
@@ -102,6 +103,8 @@ switch (ins.opcode)
 		break;
 	case DMA_MEMCPY:
 		stat = libmem_dma_memcpy(proc, ins.arg_0, ins.arg_1, ins.arg_2, ins.arg_3);
+		if (stat != 0)
+			fprintf(stderr, "DMA memcpy request failed for PID %u\n", proc->pid);
 		break;
 #endif
 	case FREE:
@@ -113,16 +116,21 @@ switch (ins.opcode)
 		break;
 	case READ:
 #ifdef MM_PAGING
-		stat = libread(proc, ins.arg_0, ins.arg_1, (uint32_t*) &ins.arg_2);
+	{
+		uint32_t data = 0;
+		stat = libread(proc, ins.arg_0, ins.arg_1, &data);
+		if (stat == 0 && ins.arg_2 < (sizeof(proc->regs) / sizeof(proc->regs[0])))
+			proc->regs[ins.arg_2] = data;
+	}
 #else
-		stat = read(proc, ins.arg_0, ins.arg_1, ins.arg_2);
+		stat = cpu_read(proc, ins.arg_0, ins.arg_1, ins.arg_2);
 #endif
 		break;
 	case WRITE:
 #ifdef MM_PAGING
 		stat = libwrite(proc, ins.arg_0, ins.arg_1, ins.arg_2);
 #else
-		stat = write(proc, ins.arg_0, ins.arg_1, ins.arg_2);
+		stat = cpu_write(proc, ins.arg_0, ins.arg_1, ins.arg_2);
 #endif
 		break;
 	case SYSCALL:
