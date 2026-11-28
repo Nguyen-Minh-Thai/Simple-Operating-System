@@ -29,24 +29,8 @@ struct pcb_t;
  * length: number of bytes to copy
  */
 int do_dma(struct pcb_t *caller, uint64_t source, uint64_t destination, uint64_t length);
-
-/*
- * Asynchronous CPU <-> co-processor interaction
- * ---------------------------------------------
- * The CPU posts a transfer descriptor into a mailbox and the DMA
- * co-processor thread (see co_processor() in os.c) consumes it,
- * performs the transfer, and raises dma_done_callback() as the
- * completion interrupt before signalling the waiting CPU.
- */
-
-/* Submit a DMA request (BUS/physical addresses) and wait for the
- * completion interrupt of the co-processor */
-int dma_submit_and_wait(struct pcb_t *caller, uint64_t src_phys,
-                        uint64_t dst_phys, uint64_t length);
-
-/* Co-processor service loop: consumes DMA descriptors forever.
- * Invoked by the co_processor thread in os.c */
-void dma_worker_loop(void);
+/* Start without waiting; caller may be NULL once the bus bank is attached. */
+int do_dma_async(struct pcb_t *caller, uint64_t source, uint64_t destination, uint64_t length);
 
 #ifdef __cplusplus
 }
