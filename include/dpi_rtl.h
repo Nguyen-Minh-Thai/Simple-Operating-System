@@ -25,6 +25,12 @@ void rtl_dma_cleanup_simulation(void);
 int dpi_rtl_dma_copy(uint64_t src_offset, uint64_t dst_offset, uint64_t length);
 int dpi_rtl_dma_is_available(void);
 void dma_done_callback(void);
+int rtl_dma_start_copy(uint64_t src_offset, uint64_t dst_offset, uint64_t length);
+int rtl_dma_poll(void);
+int rtl_dma_wait(uint64_t timeout_cycles);
+int rtl_dma_is_busy(void);
+int rtl_dma_is_irq_pending(void);
+void rtl_dma_ack_irq(void);
 
 #ifdef __cplusplus
 }
