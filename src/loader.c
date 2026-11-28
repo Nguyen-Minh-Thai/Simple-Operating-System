@@ -101,19 +101,25 @@ struct pcb_t * load(const char * path) {
 		case COPY_FROM_USER:
 		case COPY_TO_USER:
 		case SYSCALL:
-			fgets(buf, sizeof(buf), file);
-			sscanf(buf, "" FORMAT_ARG " " FORMAT_ARG " " FORMAT_ARG " " FORMAT_ARG "",
+			if (fgets(buf, sizeof(buf), file) == NULL ||
+			    sscanf(buf, "" FORMAT_ARG " " FORMAT_ARG " " FORMAT_ARG " " FORMAT_ARG "",
 			           &proc->code->text[i].arg_0,
 			           &proc->code->text[i].arg_1,
 			           &proc->code->text[i].arg_2,
-			           &proc->code->text[i].arg_3
-			);
+			           &proc->code->text[i].arg_3) != 4) {
+				fprintf(stderr,
+				        "Malformed instruction %u in '%s': expected four arguments\n",
+				        i + 1, path);
+				fclose(file);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		default:
 			printf("Opcode: %s\n", opcode);
 			exit(1);
 		}
 	}
+	fclose(file);
 	return proc;
 }
 
