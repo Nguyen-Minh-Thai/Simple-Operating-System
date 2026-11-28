@@ -27,6 +27,7 @@
 #include "sysbus.h"
 #include "dpi_rtl.h"
 #include "dma.h"
+#include "libmem.h"
 
 static int time_slot;
 static int num_cpus;
@@ -82,6 +83,9 @@ static void * cpu_routine(void * args) {
 			/* The porcess has finish it job */
 			printf("\tCPU %d: Processed %2d has finished\n",
 				id ,proc->pid);
+			if (libmem_dma_wait(proc) != 0)
+				fprintf(stderr, "CPU %d: DMA failed while finishing PID %d\n",
+					id, proc->pid);
 			/* Drop the PCB out of the kernel running list before
 			 * releasing it, so no dangling pointer is kept */
 			remove_proc(proc);
@@ -124,24 +128,9 @@ static void * cpu_routine(void * args) {
 
 static void * co_processor(void *arg) {
     (void)arg;
-    /* TODO: Initialize the internal Verilator RTL simulation.
-	 *       This is necessary to ensure that the RTL simulation is ready for DPI calls.
-      */
-    if (rtl_dma_init_simulation() != 0) {
-        printf("Cannot initialize RTL simulation\n");
-        return (void*)1;
-    }
-
-	/* TODO: This asynchronous implementation of DMA
-     *        DMA completion callback handling
-     *
-     * The co-processor serves DMA descriptors posted by the CPUs in
-     * the mailbox (see dma_submit_and_wait() in libmem.c). After each
-     * transfer the engine raises dma_done_callback() - the completion
-     * interrupt - before waking the requesting CPU up. The loop below
-     * never returns; the thread dies with the process at shutdown.
-     */
-    dma_worker_loop();
+    while (dma_irq_wait())
+        libmem_dma_handle_interrupt();
+    rtl_dma_cleanup_simulation();
     return NULL;
 }
 
@@ -166,7 +155,7 @@ static void * ld_routine(void * args) {
 	os.krnl_pgd = (uint32_t*)malloc(PAGING_MAX_PGN * sizeof(uint32_t));
 #endif
 	i=0;
-	printf("ld_routine\n");
+
 	os.mram = mram;
 	os.mswp = mswp;
 	os.active_mswp = active_mswp;
@@ -311,6 +300,19 @@ int main(int argc, char * argv[]) {
 	/* Init scheduler */
 	init_scheduler();
 
+	/* Start the DMA interrupt handler before CPUs can submit requests. */
+	if (rtl_dma_init_simulation() != 0) {
+		fprintf(stderr, "Cannot initialize RTL simulation\n");
+		stop_timer();
+		return 1;
+	}
+	if (pthread_create(dma, NULL, co_processor, NULL) != 0) {
+		fprintf(stderr, "Cannot start DMA interrupt handler\n");
+		rtl_dma_cleanup_simulation();
+		stop_timer();
+		return 1;
+	}
+
 	/* Run CPU and loader */
 #ifdef MM_PAGING
 	pthread_create(&ld, NULL, ld_routine, (void*)mm_ld_args);
@@ -322,14 +324,17 @@ int main(int argc, char * argv[]) {
 			cpu_routine, (void*)&args[i]);
 	}
 
-	/* Run co-processor */
-	pthread_create(dma, NULL, co_processor, NULL);
-
 	/* Wait for CPU and loader finishing */
 	for (i = 0; i < num_cpus; i++) {
 		pthread_join(cpu[i], NULL);
 	}
 	pthread_join(ld, NULL);
+
+	/* Finish outstanding DMA requests before the shared RAM goes away. */
+	libmem_dma_wait_all();
+	dma_irq_shutdown();
+	pthread_join(*dma, NULL);
+	memory_bank_cleanup();
 
 	/* Stop timer */
 	stop_timer();
