@@ -21,6 +21,7 @@
 
 #include "sysbus.h"
 #include "dpi_rtl.h"
+#include "common.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
@@ -28,160 +29,99 @@
 #include <cstdbool>
 #include <thread>
 #include <atomic>
+#include <chrono>
 
-// Generated DPI functions from RTL
-#ifndef DMA_SW_FALLBACK
 #include <verilated.h>
 #include <verilated_vcd_c.h>
 #include "Vdma_top.h"
-#include "Vdma_top__Dpi.h"
-#endif
+#include "Vdma_top__Dpi.h"  
 
+extern "C" int memory_bank_reserve(size_t size_bytes);
+
+#if DMA_MAIN == 1
 extern "C" {
 #include "common.h"
 #include "os-mm.h"
 }
+#endif
 
-// RTL Direct Test - Drive Verilator RTL directly
 extern "C" int dpi_rtl_dma_copy(uint64_t src_offset, uint64_t dst_offset, uint64_t length);
 extern "C" int dpi_rtl_dma_is_available(void);
 
-/*
- * dpi_dma_copy - perform DMA copy via DPI
- * src_offset: source memory offset
- * dst_offset: destination memory offset
- * length: number of bytes to copy
- */
 int dpi_dma_copy(struct pcb_t *caller, uint64_t src_offset, uint64_t dst_offset, uint64_t length) {
-    void *src = NULL;
-    void *dst = NULL;
-    //struct krnl_t *krnl = caller->krnl;
+    uint64_t bus_length;
+    size_t bank_size;
 
-    struct krnl_t *krnl = (caller != NULL) ? caller->krnl : NULL;
-
-    if (memory_bank_is_available()) {
-        printf("dma_testbench modeo with dpi_dma_copy from memory bank\n");
-        src = memory_bank_get_ptr(src_offset);
-        dst = memory_bank_get_ptr(dst_offset);
-    } else if (krnl != NULL && krnl->mram != NULL && krnl->mram->storage != NULL) {
-        /*
-         * TODO: map system OS memory address
-         * BUS addressing onto the OS physical memory (MEMRAM): the
-         * incoming offsets are physical addresses translated by the
-         * MMU, the engine accesses MEMRAM storage directly.
-         */
-        printf("dma_testbench modeo with OS memory address\n");
-        src = (void *)(krnl->mram->storage + src_offset);
-        dst = (void *)(krnl->mram->storage + dst_offset);
-
-        /* Register MEMRAM as the bus-visible bank for the RTL DPI
-         * callbacks as well */
-        memory_bank_attach((void *)krnl->mram->storage,
-                           (size_t)krnl->mram->maxsz);
-    }
-
-    if (src == NULL || dst == NULL) {
-        printf("dpi_dma_copy: invalid bus address mapping\n");
+    if (caller == NULL || length > UINT64_MAX - 3U)
         return -1;
-    }
+    if (length == 0)
+        return 0;
+    bus_length = (length + 3U) & ~UINT64_C(3);
+    if (!memory_bank_is_available() ||
+        src_offset > UINT64_MAX - bus_length ||
+        dst_offset > UINT64_MAX - bus_length ||
+        src_offset + bus_length > SIZE_MAX ||
+        dst_offset + bus_length > SIZE_MAX ||
+        memory_bank_reserve((size_t)((src_offset + bus_length >
+                                     dst_offset + bus_length)
+                                        ? src_offset + bus_length
+                                        : dst_offset + bus_length)) != 0)
+        return -1;
 
-    printf("dpi_dma_copy: src=%llu, dst=%llu, len=%llu\n", 
-		    (unsigned long long) src_offset, 
-		    (unsigned long long) dst_offset,
-		    (unsigned long long) length);
+    bank_size = memory_bank_get_size();
+    if (src_offset > bank_size || bus_length > bank_size - (size_t)src_offset ||
+        dst_offset > bank_size || bus_length > bank_size - (size_t)dst_offset)
+        return -1;
 
-    uint8_t* psrc = (uint8_t*)src;
-    uint64_t pattern_length = (length <= 255) ? length : 255;
-    
-    for (uint64_t i = 0; i < length; i++) {
-        // Pattern cycles through 0x01 to min(length, 255)
-        psrc[i] = (uint8_t)((i % pattern_length) + 1);
-    }
-
-    printf("Before copy:\n");
-    printf("  src[0] = 0x%02x, src[1] = 0x%02x\n"
-           "  src[2] = 0x%02x, src[3] = 0x%02x\n"
-           "  src[4] = 0x%02x, src[5] = 0x%02x\n"
-           "  src[6] = 0x%02x, src[7] = 0x%02x\n",
-           ((uint8_t*)src)[0], ((uint8_t*)src)[1],
-           ((uint8_t*)src)[2], ((uint8_t*)src)[3],
-           ((uint8_t*)src)[4], ((uint8_t*)src)[5],
-           ((uint8_t*)src)[6], ((uint8_t*)src)[7]);
-    printf("  dst[0] = 0x%02x, dst[1] = 0x%02x\n"
-           "  dst[2] = 0x%02x, dst[3] = 0x%02x\n"
-           "  dst[4] = 0x%02x, dst[5] = 0x%02x\n"
-           "  dst[6] = 0x%02x, dst[7] = 0x%02x\n",
-           ((uint8_t*)dst)[0], ((uint8_t*)dst)[1],
-           ((uint8_t*)dst)[2], ((uint8_t*)dst)[3],
-           ((uint8_t*)dst)[4], ((uint8_t*)dst)[5],
-           ((uint8_t*)dst)[6], ((uint8_t*)dst)[7]);
-
-    printf("\nCalling RTL DMA...\n");
-    
-    // Call the RTL DMA function directly with provided parameters
-    int result = dpi_rtl_dma_copy(src_offset, dst_offset, length);
-    
-    printf("\nAfter copy:\n");
-    printf("  src[0] = 0x%02x, src[1] = 0x%02x\n"
-           "  src[2] = 0x%02x, src[3] = 0x%02x\n"
-           "  src[4] = 0x%02x, src[5] = 0x%02x\n"
-           "  src[6] = 0x%02x, src[7] = 0x%02x\n",
-           ((uint8_t*)src)[0], ((uint8_t*)src)[1],
-           ((uint8_t*)src)[2], ((uint8_t*)src)[3],
-           ((uint8_t*)src)[4], ((uint8_t*)src)[5],
-           ((uint8_t*)src)[6], ((uint8_t*)src)[7]);
-    printf("  dst[0] = 0x%02x, dst[1] = 0x%02x\n"
-           "  dst[2] = 0x%02x, dst[3] = 0x%02x\n"
-           "  dst[4] = 0x%02x, dst[5] = 0x%02x\n"
-           "  dst[6] = 0x%02x, dst[7] = 0x%02x\n",
-           ((uint8_t*)dst)[0], ((uint8_t*)dst)[1],
-           ((uint8_t*)dst)[2], ((uint8_t*)dst)[3],
-           ((uint8_t*)dst)[4], ((uint8_t*)dst)[5],
-           ((uint8_t*)dst)[6], ((uint8_t*)dst)[7]);
-    
-    return result;
+    return dpi_rtl_dma_copy(src_offset, dst_offset, length);
 }
 
-/*
- * do_dma - perform DMA function
- * source: source memory
- * destination: destination memory
- * length: number of bytes to copy
- */
 extern "C" int do_dma(struct pcb_t *caller,uint64_t source, uint64_t destination, uint64_t length) {
-    
-    int test_errors = 0;
+    return dpi_dma_copy(caller, source, destination, length);
+}
 
-    /* Perform DMA copy using DPI with provided caller and parameters */
-    test_errors += dpi_dma_copy(caller, source, destination, length);
+extern "C" int do_dma_async(struct pcb_t *caller, uint64_t source, uint64_t destination, uint64_t length) {
+    uint64_t bus_length;
+    size_t bank_size;
 
-    /*
-     * TODO: This asynchronous implementation of DMA
-     *        DMA completion callback is not yet implemented in this testbench
-     */
-    // Install callback handler
-    //dma_done_callback();  // Call the callback to signal DMA completion
+    if (length > UINT64_MAX - 3U)
+        return -1;
+    if (length == 0)
+        return 0;
+    if (!memory_bank_is_available()) {
+        if (caller == NULL || caller->krnl == NULL ||
+            caller->krnl->mram == NULL)
+            return -1;
+        if (memory_bank_bind((void *)caller->krnl->mram->storage,
+                             (size_t)caller->krnl->mram->maxsz) != 0)
+            return -1;
+    }
+    bus_length = (length + 3U) & ~UINT64_C(3);
+    if (!memory_bank_is_available() ||
+        source > UINT64_MAX - bus_length ||
+        destination > UINT64_MAX - bus_length ||
+        source + bus_length > SIZE_MAX ||
+        destination + bus_length > SIZE_MAX ||
+        memory_bank_reserve((size_t)((source + bus_length >
+                                      destination + bus_length)
+                                         ? source + bus_length
+                                         : destination + bus_length)) != 0)
+        return -1;
 
-    return test_errors;
+    bank_size = memory_bank_get_size();
+    if (source > bank_size || bus_length > bank_size - (size_t)source ||
+        destination > bank_size || bus_length > bank_size - (size_t)destination ||
+        rtl_dma_is_busy())
+        return -1;
+    return rtl_dma_start_copy(source, destination, length);
 }
 
 #if DMA_MAIN == 1
-/* main function for independent standalone dma_testbench build
- * [Usage]: ./dma_testbench [source_offset] [destination_offset] [length]
- * source: source memory offset
- * destination: destination memory offset
- * length: number of bytes to copy
- */
 int main(int argc, char** argv) {
-    // Default test parameters
     uint64_t source = 0x1000;
     uint64_t destination = 0x2000;
     uint64_t length = 512;
 
-    /*
-     *  Only accept command line arguments if provided
-     *  [Usage]: ./dma_testbench [source_offset] [destination_offset] [length]
-     */
     if (argc >= 4) {
         source = strtoull(argv[1], NULL, 0);
         destination = strtoull(argv[2], NULL, 0);
@@ -191,40 +131,122 @@ int main(int argc, char** argv) {
     printf("Running dma_testbench source=0x%llx, destination=0x%llx, length=%llu\n",
            (unsigned long long)source, (unsigned long long)destination, (unsigned long long)length);
 
-    /*
-     * Initialize the system memory bank
-     * This is necessary to independent standalone dma_testbench build .
-     */
-    memory_bank_init(1024 * 1024);
-
-    /* Initialize the internal Verilator RTL simulation
-     * This is necessary to ensure that the RTL simulation is ready for DPI calls.
-     */
-    if (rtl_dma_init_simulation() != 0) {
-        printf("Cannot initialize RTL simulation\n");
+    if (memory_bank_init(1024 * 1024) == MEMORY_BANK_INVALID) {
+        fprintf(stderr, "Cannot initialize DMA memory bank\n");
         return 1;
     }
 
-    /*
-    * Create process control block for the caller
-    * Properly initialize all required fields
-    */
+    if (length > UINT64_MAX - 3U) {
+        fprintf(stderr, "DMA length is too large\n");
+        memory_bank_cleanup();
+        return 1;
+    }
+    uint64_t padded_length = (length + 3U) & ~UINT64_C(3);
+    uint64_t required_size = source + padded_length;
+    if (required_size < source) {
+        memory_bank_cleanup();
+        return 1;
+    }
+    if (destination + padded_length < destination) {
+        memory_bank_cleanup();
+        return 1;
+    }
+    if (destination + padded_length > required_size)
+        required_size = destination + padded_length;
+    if (required_size > SIZE_MAX ||
+        memory_bank_reserve((size_t)required_size) != 0) {
+        fprintf(stderr, "DMA memory range is too large\n");
+        memory_bank_cleanup();
+        return 1;
+    }
+
+    uint8_t* source_data = (uint8_t*)memory_bank_get_ptr(source);
+    uint8_t* destination_data = (uint8_t*)memory_bank_get_ptr(destination);
+    if (length != 0 && source_data == NULL) {
+        fprintf(stderr, "Invalid DMA source range\n");
+        memory_bank_cleanup();
+        return 1;
+    }
+    if (length != 0 && destination_data == NULL) {
+        fprintf(stderr, "Invalid DMA destination range\n");
+        memory_bank_cleanup();
+        return 1;
+    }
+    for (uint64_t i = 0; i < length; i++)
+        source_data[i] = (uint8_t)((i % 255U) + 1U);
+
+    bool check_tail_guard = (length & 3U) != 0 &&
+        (source + padded_length <= destination ||
+         destination + padded_length <= source);
+    if (check_tail_guard) {
+        for (uint64_t i = length; i < padded_length; i++)
+            destination_data[i] = 0xa5U;
+    }
+
+    if (rtl_dma_init_simulation() != 0) {
+        fprintf(stderr, "Cannot initialize RTL simulation\n");
+        memory_bank_cleanup();
+        return 1;
+    }
+
     struct pcb_t *caller = (struct pcb_t *)calloc(1, sizeof(struct pcb_t));
+    if (caller == NULL) {
+        rtl_dma_cleanup_simulation();
+        memory_bank_cleanup();
+        return 1;
+    }
     caller->krnl = (struct krnl_t *)calloc(1, sizeof(struct krnl_t));
+    if (caller->krnl == NULL) {
+        free(caller);
+        rtl_dma_cleanup_simulation();
+        memory_bank_cleanup();
+        return 1;
+    }
     caller->krnl->mm = (struct mm_struct *)calloc(1, sizeof(struct mm_struct));
     caller->krnl->mram = (struct memphy_struct *)calloc(1, sizeof(struct memphy_struct));
     caller->krnl->active_mswp = (struct memphy_struct *)calloc(1, sizeof(struct memphy_struct));
     caller->mm = caller->krnl->mm;
-    caller->pid = 0;  // Set a default PID
+    caller->pid = 0;
 
-    int result = do_dma(caller, source, destination, length);
+    int result = 0;
+    if (length != 0) {
+        rtl_dma_ack_irq();
+        result = do_dma_async(caller, source, destination, length);
+    }
+    if (result == 0 && length != 0) {
+        unsigned int wait_ms = 0;
+        while (rtl_dma_is_busy() && wait_ms < 10000U) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            wait_ms++;
+        }
+        if (rtl_dma_is_busy() || rtl_dma_poll() != 1 ||
+            !rtl_dma_is_irq_pending()) {
+            result = 1;
+        } else {
+            rtl_dma_ack_irq();
+        }
+    }
+    if (result == 0 && length != 0) {
+        if (destination_data == NULL ||
+            memcmp(source_data, destination_data, (size_t)length) != 0)
+            result = 1;
+        if (result == 0 && check_tail_guard) {
+            for (uint64_t i = length; i < padded_length; i++) {
+                if (destination_data[i] != 0xa5U) {
+                    result = 1;
+                    break;
+                }
+            }
+        }
+    }
 
-    // Cleanup
     free(caller->krnl->active_mswp);
     free(caller->krnl->mram);
     free(caller->krnl->mm);
     free(caller->krnl);
     free(caller);
+    rtl_dma_cleanup_simulation();
+    memory_bank_cleanup();
 
     return result;
 }
