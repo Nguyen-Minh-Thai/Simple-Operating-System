@@ -11,9 +11,9 @@
 #include "os-mm.h"
 #include "syscall.h"
 #include "libmem.h"
-#include "queue.h"
 #include "sched.h"
-#include <stdlib.h>
+#include <limits.h>
+#include <stdio.h>
 
 #ifdef MM64
 #include "mm64.h"
@@ -25,54 +25,45 @@
 
 int __sys_memmap(struct krnl_t *krnl, uint32_t pid, struct sc_regs* regs)
 {
-   int memop = regs->a1;
+   struct pcb_t *caller;
    BYTE value;
+   int memop;
+   int result;
 
-   /*
-    * @bksysnet: Please note in the dual spacing design
-    *            syscall implementations are in kernel space.
-    */
-
-   /* TODO: Traverse proclist to find the matching proc
-    *       user process are not allowed to access directly pcb in
-    *       kernel space of syscall: only the PID crosses the boundary
-    *       (PID passing, not PCB passing). The kernel resolves the
-    *       PID in its own running list bookkeeping.
-    */
-   struct pcb_t *caller = find_running_proc(pid);
-
-   /* TODO Maching and marking the process */
-   if (caller == NULL)
-   {
-      printf("sys_memmap: no running process matches PID %u\n", pid);
+   if (krnl == NULL || regs == NULL || regs->a1 > INT_MAX)
       return -1;
-   }
 
-   int ret = 0;
-
+   memop = (int)regs->a1;
    switch (memop) {
    case SYSMEM_MAP_OP:
-            /* Reserved process case*/
-            ret = vmap_pgd_memset(caller, regs->a2, regs->a3);
-            break;
    case SYSMEM_INC_OP:
-            ret = inc_vma_limit(caller, regs->a2, regs->a3);
-            break;
    case SYSMEM_SWP_OP:
-            ret = __mm_swap_page(caller, regs->a2, regs->a3);
-            break;
-   case SYSMEM_IO_READ:
-            MEMPHY_read(krnl->mram, regs->a2, &value);
-            regs->a3 = value;
-            break;
-   case SYSMEM_IO_WRITE:
-            MEMPHY_write(krnl->mram, regs->a2, regs->a3);
-            break;
-   default:
-            printf("Memop code: %d\n", memop);
-            ret = -1;
-            break;
-   }
+      caller = find_proc_by_pid(krnl, pid);
+      if (caller == NULL)
+         return -1;
 
-   return ret;
+      if (regs->a2 > INT_MAX)
+         return -1;
+      if (memop == SYSMEM_MAP_OP) {
+         if (regs->a3 > INT_MAX)
+            return -1;
+         return vmap_pgd_memset(caller, regs->a2, (int)regs->a3);
+      }
+      if (memop == SYSMEM_INC_OP)
+         return inc_vma_limit(caller, (int)regs->a2, regs->a3);
+      return __mm_swap_page(caller, regs->a2, regs->a3);
+
+   case SYSMEM_IO_READ:
+      result = MEMPHY_read(krnl->mram, regs->a2, &value);
+      if (result == 0)
+         regs->a3 = (unsigned char)value;
+      return result;
+
+   case SYSMEM_IO_WRITE:
+      return MEMPHY_write(krnl->mram, regs->a2, (BYTE)regs->a3);
+
+   default:
+      fprintf(stderr, "Unsupported memory operation: %d\n", memop);
+      return -1;
+   }
 }
